@@ -1,7 +1,9 @@
 package;
+import haxe.io.UInt8Array;
 import js.html.Image;
 import js.html.ImageData;
 import js.html.Uint32Array;
+
 
 /**
  * ...
@@ -18,32 +20,37 @@ class Display
 	var pixelData : Uint32Array; 
 
 	
+	public var modeData : UInt8Array = new UInt8Array(8);
+	
+	/*
 	public var pixelData_displayStart : Int = 0x4000;
 	public var colorData_displayStart : Int = 0x4001;
 
 	public var pixelData_increment : Int = 2;
-	public var colorData_increment : Int = 2;
+	public var colorData_increment : Int = 2; 
   	
 	public var pixelData_lineIncrement : Int = 320;
 	public var colorData_lineIncrement : Int = 320;
-	
+	*/
 	public var displayShiftX : Int = 0;
 	public var displayShiftY : Int = 0;
 	
 	public var serialPixelAddress: Int = 0; 
 	
+	var smallPalette : UInt8Array = new UInt8Array(16); 
+	
 	var palette : Uint32Array = new Uint32Array([
-		0xFF000000, 0xFF9D9D9D, 0xFFFFFFFF, 0xFFBE2633,
-		0xFFE06F8B, 0xFF493C2B, 0xFFA46422, 0xFFEB8931,
-		0xFFF7E26B, 0xFF2F484E, 0xFF44891A, 0xFFA3CE27,
-		0xFF1B2632, 0xFF005784, 0xFF31A2F2, 0xFFB2DCEF,
+		0xFF000000, 0xFF9D9D9D, 0xFFFFFFFF, 0xFF3326BE,
+		0xFF8B6FE0, 0xFF2B3C49, 0xFF2264A4, 0xFF3189EB,
+		0xFF6BE2F7, 0xFF4E482F, 0xFF1A8944, 0xFF27CEA3,
+		0xFF32261B, 0xFF845700, 0xFFF2A231, 0xFFEFDCB2, 
 		
 		0xFF141414, 0xFF1E1E1E, 0xFF282828, 0xFF323232, 0xFF3C3C3C, 0xFF464646, 0xFF505050, 0xFF5a5a5a,
 		0xFF646464, 0xFF6E6E6E, 0xFF787878, 0xFF828282, 0xFF8C8C8C, 0xFF969696, 0xFFA0A0A0, 0xFFAAAAAA,
 		0xFFB4B4B4, 0xFFBEBEBE, 0xFFC8C8C8, 0xFFD2D2D2, 0xFFDCDCDC, 0xFFE6E6E6, 0xFFF0F0F0, 0xFFFAFAFA,
 
 		0xFF0A0A0A, 0xFF3E0000, 0xFF6B0000, 0xFF990000, 0xFFCB0000, 0xFFFF0000,
-		0xFF002F00, 0xFF3E2F00, 0xFF6B2F00, 0xFF992F00, 0xFFCB2F00, 0xFFFF2F00,
+		0xFF002F00, 0xFF3E2F00, 0xFF6B2F00, 0xFF992F00, 0xFFCB2F00, 0xFFFF2F00, 
 		0xFF006000, 0xFF3E6000, 0xFF6B6000, 0xFF996000, 0xFFCB6000, 0xFFFF6000,
 		0xFF009000, 0xFF3E9000, 0xFF6B9000, 0xFF999000, 0xFFCB9000, 0xFFFF9000,
 		0xFF00C800, 0xFF3EC800, 0xFF6BC800, 0xFF99C800, 0xFFCBC800, 0xFFFFC800,
@@ -117,16 +124,25 @@ class Display
 		var color = palette[value];
 		imageData.data[byteAddress] += color & 0xff;
 		imageData.data[byteAddress+1] += (color>>8) & 0xff;
-		imageData.data[byteAddress+2] += (color>>16) & 0xff;
+		imageData.data[byteAddress+2] += (color>>16) & 0xff; 
 		serialPixelAddress += 1;
 		if (serialPixelAddress >= frameBufferWidth * frameBufferHeight) serialPixelAddress = 0;
 	}
 	
-	public function renderMode1(avr:AVR8) {
+	public function renderMode0(avr:AVR8) {
+		var pixelData_displayStart : Int = modeData[0] + (modeData[1] << 8);
+		var colorData_displayStart : Int = modeData[2] + (modeData[3] << 8); 
+		var pixelData_increment : Int = modeData[4];
+		var colorData_increment : Int = modeData[5]; 
+  	
+		var pixelData_lineIncrement : Int = modeData[6]<<3;
+		var colorData_lineIncrement : Int = modeData[7]<<3;
+
+		
 		var cellsWide = 160+6;
 		var cellsHigh = 120 + 6;
 		
-		
+		 
 		
 		for (ty in 0...cellsHigh) {
 			var pixelData_lineStart = pixelData_displayStart + pixelData_lineIncrement * ty;
@@ -167,5 +183,172 @@ class Display
 				outWalk += 3;
 			}
 		}
+	}	
+	
+	public function renderMode1(avr:AVR8, pixelsPerByte : Int = 3) {
+		function render2PixelPerByteScan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
+			var destWalk = lineStart;
+			var srcWalk = srcLine;
+			var nextPixel = doubleX ? 2:1;
+
+			if (flipX) {
+				destWalk += nextPixel * (bytesWide * 2 -1);
+				nextPixel =-nextPixel;
+			}
+			
+			for (b in 0...bytesWide) {
+				var byte = avr.ram[srcWalk++];
+				var microPalette = (byte >> 4) & 0x0C;
+				for (i in 0...2) {
+					var pix = (byte & 0xF0) >> 4;
+					byte = byte << 4;   
+					var mainPaletteIndex = smallPalette[pix];
+					if ( (pix | mainPaletteIndex)  != 0 ) {
+						pixelData[destWalk] = palette[mainPaletteIndex];
+						if (doubleX) {
+							pixelData[destWalk+1] = palette[mainPaletteIndex];
+						}
+					}
+					destWalk += nextPixel;
+				}
+			}
+		}
+
+
+		function render3PixelPerByteScan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
+			var destWalk = lineStart;
+			var srcWalk = srcLine;
+			var nextPixel = doubleX ? 2:1;
+
+			if (flipX) {
+				destWalk += nextPixel * (bytesWide * 3 -1);
+				nextPixel =-nextPixel;
+			}
+			
+			for (b in 0...bytesWide) {
+				var byte = avr.ram[srcWalk++];
+				var microPalette = (byte >> 4) & 0x0C;
+				for (i in 0...3) {
+					var pix = (byte & 0x30) >> 4;
+					byte = byte << 2;   
+					var mainPaletteIndex = smallPalette[microPalette+pix];
+					if ( (pix | mainPaletteIndex)  != 0 ) {
+						pixelData[destWalk] = palette[mainPaletteIndex];
+						if (doubleX) {
+							pixelData[destWalk+1] = palette[mainPaletteIndex];
+						}
+					}
+					destWalk += nextPixel;
+				}
+				
+			}
+		}
+
+		function render4PixelPerByteScan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
+			var destWalk = lineStart;
+			var srcWalk = srcLine;
+			var nextPixel = doubleX ? 2:1;
+
+			if (flipX) {
+				destWalk += nextPixel * (bytesWide * 4 -1);
+				nextPixel =-nextPixel;
+			}
+			
+			for (b in 0...bytesWide) {
+				var byte = avr.ram[srcWalk++];
+				var microPalette = (byte >> 4) & 0x0C;
+				for (i in 0...4) {
+					var pix = (byte & 0xC0) >> 6;
+					byte = byte << 2;   
+					var mainPaletteIndex = smallPalette[pix];
+					if ( (pix | mainPaletteIndex)  != 0 ) {
+						pixelData[destWalk] = palette[mainPaletteIndex];
+						if (doubleX) {
+							pixelData[destWalk+1] = palette[mainPaletteIndex];
+						}
+					}
+					destWalk += nextPixel;
+				}
+			}
+		}
+
+		function render8PixelPerByteScan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
+			var destWalk = lineStart;
+			var srcWalk = srcLine;
+			var nextPixel = doubleX ? 2:1;
+
+			if (flipX) {
+				destWalk += nextPixel * (bytesWide * 8 -1);
+				nextPixel =-nextPixel;
+			}
+			
+			for (b in 0...bytesWide) {
+				var byte = avr.ram[srcWalk++];
+				var microPalette = (byte >> 4) & 0x0C;
+				for (i in 0...8) {
+					var pix = (byte & 0x80) >> 7;
+					byte = byte << 1;   
+					var mainPaletteIndex = smallPalette[pix];
+					if ( (pix | mainPaletteIndex)  != 0 ) {
+						pixelData[destWalk] = palette[mainPaletteIndex];
+						if (doubleX) {
+							pixelData[destWalk+1] = palette[mainPaletteIndex];
+						}
+					}
+					destWalk += nextPixel;
+				}
+			}
+		}
+			
+
+		var displayStart : Int = modeData[0] + (modeData[1] << 8);
+		var bytesWide : Int = modeData[2];
+		var height : Int = modeData[3];
+		var lineIncrement : Int = modeData[4];
+		var paletteStart : Int = modeData[5] + (modeData[6] << 8);
+		var flags : Int = modeData[7];
+		
+		var flipX = (flags & 0x80) != 0;
+		var flipY = (flags & 0x40) != 0;
+		var doubleX = (flags & 0x20) != 0;
+		var doubleY = (flags & 0x10) != 0;
+
+		for (p in 0...16) {
+			smallPalette[p*2]=avr.ram[paletteStart + p] >> 4; 
+			smallPalette[p*2+1]=avr.ram[paletteStart + p] &0x0f; 
+		}
+		
+		var topLeft = serialPixelAddress; 
+		var scanlinesHigh = (height-1) << (doubleY?1:0);		
+		var lineStart = topLeft + (flipY?frameBufferWidth * scanlinesHigh:0);  
+		var srcLine = displayStart;   
+		var pixelsWide = (bytesWide * pixelsPerByte) << (doubleX?1:0);
+		var nextLine = frameBufferWidth * (flipY? -1:1); 
+		
+		for (ty in 0...height) { 
+			
+			switch (pixelsPerByte) {
+			 case 2: render2PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
+			 case 3: render3PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
+			 case 4: render4PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
+			 case 8: render8PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
+			}
+			
+			if (doubleY) {
+				for (tx in 0...pixelsWide) {
+					pixelData[lineStart + frameBufferWidth + tx] = pixelData[lineStart + tx];
+				}
+				lineStart += nextLine * 2;
+			} else {				
+				lineStart += nextLine;
+			}
+			
+			srcLine+= lineIncrement;
+		}
+		
+		
+
 	}
+
+
 }

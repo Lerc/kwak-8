@@ -1,29 +1,63 @@
 
 Display is a 512x392 virtual FrameBuffer.  
-The visible region is 480x360
+The visible region is a window(480x360 or 240x180) into FrameBuffer
 
 Display_port_start = 0x40; 
 
- pixelData_displayStart_L  +00
- pixelData_displayStart_H  +01  default 0x4000;
- colorData_displayStart_L  +02  
- colorData_displayStart_H  +03  default 0x4001;
+Mode 0: is a mode using a single byte pixel data and a single byte colour data to generate a 3x3 block in any two of 16 colours.
 
- pixelData_increment +04 default 2;
- colorData_increment +05 default 2;
+ alt FrameBuffer_Control
+ 
+ 
+ setFrameBuffer,+00   Generate Display  
+			0x00 = Show Lowres display  (240x160)
+			0x01 = Show Highres display (480x360);
+			0x80 = Generate Mode 0   (fill framebuffer with 1.777bit per pixel data ( 16 bits per 9 pixels) )
+			0x81 = Generate Mode 1
+
+ 
+ displayShift  +01  default 0    framebuffer view offset  xxxxyyyy 
+	
+ serialPixelAddress_L +02
+ serialPixelAddress_M +03
+ serialPixelAddress_H,+04   24 bit serial virtual frameBuffer pixel write address.  0x000000-0x031000 
+ 
+ serialPixelSet,+05   frameBuffer set         pixel=palette[v],   serialPixelAddress+=1
+ serialPixelMul,+06   frameBuffer multiply    pixel.rgb=(pixel.rgb*palette[v].rgb) >> 8  (does not advance address)
+ serialPixelAdd,+07   frameBuffer add         pixel.rgb+=palette[v].rgb,  serialPixelAddress+=1 (clamped add)
+ 
+
+Mode_port_start = Display_port_start + ??
+
+ mode0_PixelData_displayStart_L  +00
+ mode0_PixelData_displayStart_H  +01  default 0x4000;
+ mode0_ColorData_displayStart_L  +02  
+ mode0_ColorData_displayStart_H  +03  default 0x4001;
+
+ mode0_PixelData_increment +04 default 2;
+ mode0_ColorData_increment +05 default 2;
   	
- pixelData_lineIncrement +06 default 64    pixel data bytes per line vvvvvvvv000  (v<<3)
- colorData_lineIncrement +07 default 64    pixel data bytes per line vvvvvvvv000  (v<<3)
+ mode0_PixelData_lineIncrement +06 default 64    pixel data bytes per line vvvvvvvv000  (v<<3)
+ mode0_ColorData_lineIncrement +07 default 64    pixel data bytes per line vvvvvvvv000  (v<<3)
 	
- displayShift  +08  default 0    framebuffer view offset  xxxxyyyy 
-	
- serialPixelAddress_L +09
- serialPixelAddress_M +0A
- serialPixelAddress_H,+0B   24 bit serial virtual frameBuffer pixel write address.  0x000000-0x031000 
+
+ mode1_ImageData_L +00
+ mode1_ImageData_H +01
+ mode1_ImageBytesWide + 02
+ mode1_ImageHeight +3
+ mode1_ImageData_LineIncrement +04
+ mode1_PaletteData_L +5
+ mode1_PaletteData_H +6
+ mode1_Flags +7           FlipX, FlipY, DoubleX, DoubleY   4 bits reserved 
+ input base = 0x50
  
- serialPixelSet_H,+0C   frameBuffer set         pixel=palette[v],   serialPixelAddress+=1
- serialPixelMul_H,+0D   frameBuffer multiply    pixel.rgb=(pixel.rgb*palette[v].rgb) >> 8  (does not advance address)
- serialPixelAdd_H,+0E   frameBuffer add         pixel.rgb+=palette[v].rgb,  serialPixelAddress+=1 (clamped add)
+ button_state_0 + 0  Left Up Right Down Enter Esc Ctrl Shift  
+ button_state_1 + 1  A W D S SPACE Mouse1 Mouse2 Mouse3
+ mouseX +2
+ mouseY +3
+ ticker +4
  
- setFrameBuffer,+0F   Generate Display  (0 = Mode0,  others to be invented later)
+ 
+ 
+ 
  
