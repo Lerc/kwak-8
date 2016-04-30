@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html >
+  <head>
+    <meta charset="UTF-8">
+    <title>Simple Sprite Ed</title>
+    
+    
+    
+    
+        <link rel="stylesheet" href="css/style.css">
+
+    
+    
+    
+  </head>
+
+  <body>
+
+    <div class="popup">
+<div class="Palette">
+  <div class="PaletteEntry arne_Void" data-color="0"></div>
+  <div class="PaletteEntry arne_Ash" data-color="1"></div>
+  <div class="PaletteEntry arne_Blind" data-color="2"></div>
+  <div class="PaletteEntry arne_BloodRed" data-color="3"></div>
+  <div class="PaletteEntry arne_PigMeat" data-color="4"></div>
+  <div class="PaletteEntry arne_OldPoop" data-color="5"></div>
+  <div class="PaletteEntry arne_NewPoop" data-color="6"></div>
+  <div class="PaletteEntry arne_Blaze" data-color="7"></div>
+  <div class="PaletteEntry arne_ZornSkin" data-color="8"></div>
+  <div class="PaletteEntry arne_ShadeGreen" data-color="9"></div>
+  <div class="PaletteEntry arne_LeafGreen" data-color="10"></div>
+  <div class="PaletteEntry arne_SlimeGreen" data-color="11"></div>
+  <div class="PaletteEntry arne_NightBlue" data-color="12"></div>
+  <div class="PaletteEntry arne_SeaBlue" data-color="13"></div>
+  <div class="PaletteEntry arne_SkyBlue" data-color="14"></div>
+  <div class="PaletteEntry arne_CloudBlue" data-color="15"></div>
+</div>
+</div>
+
+<div class="control panel">
+  <div class="dimentions panel">
+    <div>
+      <input id="SpriteWidth" type="number" min="1" max="256" value="8"/>
+      <label>Bytes wide </label>
+    </div>
+    <div>
+      <input id="SpriteHeight" type="number" min="1" max="256" value="16"/>
+      <label>Lines high </label>
+    </div>
+   <label>Pixels per byte </label><select>
+      <option>2</option>
+      <option>3</option>
+      <option>4</option>
+      <option>8</option>    
+    </select>
+
+  </div>
+  
+  <div class="PaletteSets panel" data-pixelsPerByte="2">
+    <div class="MicroPalette">
+      <div class="PaletteEntry ppb8 ppb4 ppb3 ppb2 altpen" data-index="0" data-color="0"></div>
+      <div class="PaletteEntry ppb8 ppb4 ppb3 ppb2 mainpen" data-index="1" data-color="1"></div>
+      <div class="PaletteEntry ppb4 ppb3 ppb2 " data-index="2" data-color="2" ></div>
+      <div class="PaletteEntry ppb4 ppb3 ppb2" data-index="3" data-color="3"></div>  
+    </div>
+    <div class="MicroPalette">
+      <div class="PaletteEntry ppb3 ppb2" data-index="4" data-color="4"></div>
+      <div class="PaletteEntry ppb3 ppb2" data-index="5" data-color="5"></div>
+      <div class="PaletteEntry ppb3 ppb2" data-index="6" data-color="6"></div>
+      <div class="PaletteEntry ppb3 ppb2" data-index="7" data-color="7"></div>
+    </div>
+    <div class="MicroPalette">
+      <div class="PaletteEntry ppb3 ppb2" data-index="8" data-color="8"></div>
+      <div class="PaletteEntry ppb3 ppb2" data-index="9" data-color="9"></div>
+      <div class="PaletteEntry ppb3 ppb2" data-index="10" data-color="10"></div>
+      <div class="PaletteEntry ppb3 ppb2" data-index="11" data-color="11"></div>
+    </div>
+
+    <div class="MicroPalette">
+      <div class="PaletteEntry ppb3 ppb2" data-index="12" data-color="12"></div>
+      <div class="PaletteEntry ppb3 ppb2" data-index="13" data-color="13"></div>
+      <div class="PaletteEntry ppb3 ppb2" data-index="14" data-color="14"></div>
+      <div class="PaletteEntry ppb3 ppb2" data-index="15" data-color="15"></div>
+    </div>
+  </div>  
+  
+</div>
+
+<div class="workspace panel">
+  <canvas width="512" height="512"> </canvas>
+</div>
+
+<div id="note"></div>
+
+    <script src='http://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.2/jquery.min.js'></script>
+
+        <script src="js/index.js"></script>
+
+    
+    
+    
+  </body>
+</html>

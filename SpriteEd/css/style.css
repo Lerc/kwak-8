@@ -1,0 +1,118 @@
+
+*[data-color='0'] {background-color:#000000;}
+*[data-color='1'] {background-color:#9D9D9D;}
+*[data-color='2'] {background-color:#FFFFFF;}
+*[data-color='3'] {background-color:#BE2633;}
+*[data-color='4'] {background-color:#E06F8B;}
+*[data-color='5'] {background-color:#493C2B;}
+*[data-color='6'] {background-color:#A46422;}
+*[data-color='7'] {background-color:#EB8931;}
+*[data-color='8'] {background-color:#F7E26B;}
+*[data-color='9'] {background-color:#2F484E;}
+*[data-color='10'] {background-color:#44891A;}
+*[data-color='11'] {background-color:#A3CE27;}
+*[data-color='12'] {background-color:#1B2632;}
+*[data-color='13'] {background-color:#005784;}
+*[data-color='14'] {background-color:#31A2F2;}
+*[data-color='15'] {background-color:#B2DCEF;}
+
+  
+.PaletteEntry {
+  display: inline-block;
+  width:31px;
+  height:31px;
+  border:1px solid black;
+}
+
+.popup {
+  visibility: hidden;
+  position:absolute;
+  left:0px;
+  right:0px;
+  bottom:0px;
+  top:0px;
+  z-Index:1000;
+}
+ 
+.popup.showing {
+  visibility : visible;
+}
+
+
+.Palette {
+  position: absolute;
+  transform : scale(0,0);
+  left:4000px;
+  top:0px;
+  width : 148px;
+  opacity:0.0;
+  transition: opacity 0.3s , transform 0.3s;
+  background-color: white;
+  box-shadow: 2px 2px 4px 4px;
+  padding:6px;
+}
+
+.popup.showing>.Palette {
+  opacity: 1;
+  transform : scale(1,1);
+}
+
+.PaletteEntry:hover {
+   box-shadow: 0px 0px 4px 2px; 
+}
+
+.PaletteSets>.MicroPalette {
+  visibility:hidden;
+}
+
+
+.PaletteSets[data-pixelsPerByte="8"]>.MicroPalette>.ppb8 {
+  visibility:visible;
+}
+.PaletteSets[data-pixelsPerByte="4"]>.MicroPalette>.ppb4 {
+  visibility:visible;
+}
+.PaletteSets[data-pixelsPerByte="3"]>.MicroPalette>.ppb3 {
+  visibility:visible;
+}
+.PaletteSets[data-pixelsPerByte="2"]>.MicroPalette>.ppb2 {
+  visibility:visible;
+}
+
+.PaletteEntry.mainpen {
+	box-shadow: 0px 0px 1px 3px yellow inset;
+}
+.PaletteEntry.altpen {
+	box-shadow: 0px 0px 1px 3px orange;
+}
+
+.PaletteEntry.mainpen.altpen {
+	box-shadow: 0px 0px 1px 3px yellow inset, 0px 0px 1px 3px orange;
+}
+
+.panel {
+  border: 1px solid black;
+  display: inline-block;
+  padding: 4px;
+}
+.workspace {
+}
+
+canvas {
+    background-image:
+      -moz-linear-gradient(45deg, #000 25%, transparent 25%), 
+      -moz-linear-gradient(-45deg, #000 25%, transparent 25%),
+      -moz-linear-gradient(45deg, transparent 75%, #000 75%),
+      -moz-linear-gradient(-45deg, transparent 75%, #000 75%);
+    background-image:
+      -webkit-gradient(linear, 0 100%, 100% 0, color-stop(.25, #ccc), color-stop(.25, transparent)), 
+      -webkit-gradient(linear, 0 0, 100% 100%, color-stop(.25, #ccc), color-stop(.25, transparent)),
+      -webkit-gradient(linear, 0 100%, 100% 0, color-stop(.75, transparent), color-stop(.75, #ccc)),
+      -webkit-gradient(linear, 0 0, 100% 100%, color-stop(.75, transparent), color-stop(.75, #ccc));
+
+    -moz-background-size:12px 12px;
+    background-size:12px 12px;
+    -webkit-background-size:12px 13px; /* override value for shitty webkit */
+    
+    background-position:0 0, 6px 0, 6px -6px, 0px 6px;
+}
