@@ -14,6 +14,8 @@ var altpen=0;
 var canvas=$(".workspace>canvas")[0];
 var ctx=canvas.getContext("2d");
 
+var exampleCtx=$(".examples>canvas")[0].getContext("2d");
+
 var arnePalette =[
   		0xFF000000, 0xFF9D9D9D, 0xFFFFFFFF, 0xFF3326BE,
 		0xFF8B6FE0, 0xFF2B3C49, 0xFF2264A4, 0xFF3189EB,
@@ -88,17 +90,55 @@ $("select").on("change",
 
 $("#SpriteWidth").on("change",
   function (e) {
-	setDataSize(e.value,sprite.height);
+	setDataSize(e.target.value,sprite.height);
   }	
 );
 $("#SpriteHeight").on("change",
   function (e) {
-	setDataSize(e.value,sprite.height);
+	setDataSize(sprite.widthInBytes,e.target.value);
+  }	
+);
+
+
+$(".output>button").on("click",
+  function (e) {
+	var outputText = generateCSource(sprite);
+	alert( outputText) ;
   }	
 );
   
+function generateCSource(sprite) {
+  var result = "const uint8_t spriteName_Palette[] PROGMEM = {0x00,0x21,0x23,0x45,0x67,0x89,0xab,0xcd}; \n";
+  result+= "const uint8_t spriteName_data PROGMEM = { " + new Array(sprite.data) + " };\n";
+  
+  return result;
+}  
+function drawExampleImages(image)  {
+  var w=image.width;
+  var h=image.height;
+  
+  exampleCtx.clearRect(0,0,1000,1000);
+  exampleCtx.putImageData(image,w,h);
+  exampleCtx.putImageData(scaleImageData(image,2,2),w*3,h);
+  exampleCtx.putImageData(scaleImageData(image,3,3),w*6,h);
+  exampleCtx.putImageData(scaleImageData(image,4,4),w*10,h);
+
+  exampleCtx.putImageData(scaleImageData(image,1,2),w,h*6);
+  exampleCtx.putImageData(scaleImageData(image,2,4),w*3,h*6);
+  exampleCtx.putImageData(scaleImageData(image,3,6),w*6,h*6);
+  exampleCtx.putImageData(scaleImageData(image,4,8),w*10,h*6);
+
+  exampleCtx.putImageData(scaleImageData(image,2,1),w,h*16);
+  exampleCtx.putImageData(scaleImageData(image,4,2),w*3,h*16);
+  exampleCtx.putImageData(scaleImageData(image,6,3),w*6,h*16);
+  exampleCtx.putImageData(scaleImageData(image,8,4),w*10,h*16);
+  
+}
 function updateCanvas() {
   var im=generateImageFromsSpriteData(sprite);
+
+  drawExampleImages(im)
+  
   ctx.putImageData(scaleImageData(im,viewScale,viewScale),0,0);
   ctx.beginPath();
   for (var i=0; i<sprite.widthInBytes;i++) {
@@ -118,10 +158,15 @@ function syncCanvasSize() {
 
 function setDataSize(w,h) {
   var newData = new Uint8Array(w*h);  
-  newData.set(sprite.data,0);
+  for (var ty=0; ty < Math.min(h,sprite.height); ty++) {
+	for (var tx=0; tx < Math.min(w,sprite.widthInBytes); tx++) {
+	  newData[tx+ty*w] = sprite.data[tx+ty*sprite.widthInBytes];
+	}
+  }
+  //newData.set(sprite.data,0);
   sprite.data=newData;
-  sprite.dataWidth=w;
-  sprite.dataHeight=h;
+  sprite.widthInBytes=w;
+  sprite.height=h;
   syncCanvasSize();
 }
 
@@ -230,14 +275,9 @@ pixelMasks[4] = [0xC0,0x30,0x0C,0x03];
 pixelMasks[3] = [0xf0,0xCC,0xC3];
 pixelMasks[2] = [0xf0,0x0f];
   
-
-$(canvas).on("mousedown",
-  function (e) {
-    
-	var pixelX = Math.floor(e.offsetX/viewScale);
-	var pixelY = Math.floor(e.offsetY/viewScale);
-	
-	var byteIndex = pixelY  * sprite.widthInBytes + Math.floor(pixelX/sprite.pixelsPerByte);
+  
+function paint(pixelX,pixelY,button) {
+  var byteIndex = pixelY  * sprite.widthInBytes + Math.floor(pixelX/sprite.pixelsPerByte);
 	
 	var pixelOffset = pixelX % sprite.pixelsPerByte;
 	var mask = pixelMasks[sprite.pixelsPerByte][pixelOffset];
@@ -246,7 +286,7 @@ $(canvas).on("mousedown",
 	
 	var color = 0;
 	
-	switch(e.button) {
+	switch(dragging) {
 	  case 0:
 		color= mainpen
 	  break;
@@ -279,9 +319,35 @@ $(canvas).on("mousedown",
 	
 	$("#note").text("pixel X:"+pixelX+"    pixelY:"+pixelY +"     ByteIndex:"+byteIndex+"     pixelOffset"+pixelOffset+ "     mask: 0x"+imask.toString(16));
 	updateCanvas();
+	
+} 
+
+var dragging = null;
+  
+$(canvas).on("mousedown",
+  function (e) {
+   	if (dragging === null) {
+	  dragging = e.button;
+	  e.preventDefault();
+	  paint(Math.floor(e.offsetX/viewScale),Math.floor(e.offsetY/viewScale),dragging);
+	}
+  }
+).on("mouseup",
+  function (e) {
+   	if (dragging === e.button) {
+	  dragging = null;
+	}
   }
 )
 .on("contextmenu", 
   function(){return false;}  
+).on("mousemove",
+  function (e) {
+	if (dragging === null) {
+	  return
+	}
+	console.log(e.offsetX,e.offsetY);
+	paint(Math.floor(e.offsetX/viewScale),Math.floor(e.offsetY/viewScale),dragging);	
+  }
 );
 

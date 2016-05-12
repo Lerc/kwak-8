@@ -1,7 +1,7 @@
 package ;
 
 import haxe.Timer;
-import js.Lib;
+
 
 /**
  * ...

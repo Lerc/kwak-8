@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8"/>
+	<title>avr thing</title>
+	<meta name="description" content="" />
+	<style> 
+	  .registerbox {
+	    border: 1px solid black;
+		font-family: 'DejaVu Sans Mono', "Consolas", "Droid Sans Mono", monospace;
+		font-size: 20px/24px;
+		width:800px;
+		height:200px;
+		position :relative;
+	  }
+	  .register {
+	    display: inline-block;
+		box-shadow: 0px 0px 1px 0px rgba(0,0,0,0.5);
+		width: 84px;
+		height: 22px;
+		text-align: right;
+		padding:3px;
+		padding-right: 13px;
+	  }
+  	.register.sys { 
+		position:relative;
+		top:10px;
+	  }
+	.run.button {
+		position: absolute;
+		bottom: 34px;
+		right: 2px;
+	}
+	.step.button {
+		position: absolute;
+		bottom: 34px;
+		right: 62px;
+	}
+	canvas {
+	  cursor:none;
+	}
+	.ttyoutput {
+			box-shadow: 0px 0px 1px 0px rgba(0,0,0,0.5);
+			position:absolute;
+			left:0px;
+			right:0px;
+			bottom:0px;
+			font-family: monospace;
+			font-size: 21px;
+			white-space: pre;
+		}
+		.log {
+		  position:absolute;
+			left:0px;
+			right:0px;
+			bottom:0px;
+			height:20%;
+			overflow:auto;
+			white-space:pre;	
+			padding:4px;
+			
+		}
+		.disassembly {
+			white-space: pre;
+			font-family: sans-serif;
+			position: absolute;
+			left:500px;
+			right:20px;
+			height:380px;
+			top:0px;
+		}
+		
+		.PC {
+			background-color: #ff9;
+		}
+	</style>
+</head>
+<body>
+	
+	<script src="avr.js"></script>
+</body>
+</html>

@@ -12,7 +12,6 @@
     <movie minorVersion="0" />
     <movie platform="JavaScript" />
     <movie background="#FFFFFF" />
-    <movie preferredSDK="Haxe 3.2.0;3.2.0;" />
   </output>
   <!-- Other classes to be compiled into your SWF -->
   <classpaths>
@@ -25,7 +24,7 @@
     <option noInlineOnDebug="False" />
     <option mainClass="Main" />
     <option enabledebug="False" />
-    <option additional="-resource c/simple/minimal.hex@minimalc&#xA;-resource c/hello/hello.hex@hello&#xA;-resource c/spritish/spritish.hex@spritish&#xA;-resource c/SpriteEd/SpriteEd.hex@SpriteEd&#xA;-resource asm/test3.hex@test3" />
+    <option additional="-resource c/simple/minimal.hex@minimalc&#xA;-resource c/hello/hello.hex@hello&#xA;-resource c/spritish/spritish.hex@spritish" />
   </build>
   <!-- haxelib libraries -->
   <haxelib>

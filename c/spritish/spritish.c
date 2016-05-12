@@ -21,12 +21,13 @@
 #define PORT_MODE0_PIXEL_LINE_INCREMENT  _SFR_IO8(0x2E)
 #define PORT_MODE0_COLOR_LINE_INCREMENT  _SFR_IO8(0x2F)
 
-#define PORT_MODE1_DISPLAY_START  _SFR_IO16(0x28)
-#define PORT_MODE1_BYTES_WIDE  _SFR_IO8(0x2A)
-#define PORT_MODE1_HEIGHT  _SFR_IO8(0x2B)
-#define PORT_MODE1_LINE_INCREMENT  _SFR_IO8(0x2C)
-#define PORT_MODE1_PALETTE_START  _SFR_IO16(0x2D)
-#define PORT_MODE1_FLAGS  _SFR_IO8(0x2F)
+#define PORT_BLIT_IMAGE_START  _SFR_IO16(0x28)
+#define PORT_BLIT_BYTES_WIDE  _SFR_IO8(0x2A)
+#define PORT_BLIT_HEIGHT  _SFR_IO8(0x2B)
+#define PORT_BLIT_LINE_INCREMENT  _SFR_IO8(0x2C)
+#define PORT_BLIT_PALETTE_START  _SFR_IO16(0x2D)
+#define PORT_BLIT_FLAGS  _SFR_IO8(0x2F)
+
 
 #define PORT_MOUSEX  _SFR_IO8(0x2A)
 #define PORT_MOUSEY  _SFR_IO8(0x2B)
@@ -69,20 +70,9 @@ void writeRect(uint16_t x,uint16_t y, uint8_t w, uint8_t h,uint8_t color) {
 
 const char hexDigits[] PROGMEM = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
 
+const uint8_t arrowPal[] = {0x00,0x21,0x23,0x45,0x67,0x89,0xab,0xcd};
 
-const uint8_t arrow[] PROGMEM = {
-  2,0,0,0,0,0,0,0,
-  2,2,0,0,0,0,0,0,
-  2,2,2,0,0,0,0,0,
-  2,2,2,2,0,0,0,0,
-  2,2,2,2,2,0,0,0,
-  2,2,2,2,2,2,0,0,
-  2,2,2,2,2,0,0,0,
-  2,0,2,2,2,0,0,0,
-  0,0,0,2,2,2,0,0,
-  0,0,0,2,2,2,0,0,
-  0,0,0,0,2,2,2,0,
-  0,0,0,0,2,2,2,0 };
+const uint8_t arrow[] = {  20,0,0,105,64,0,106,148,0,106,169,64,106,170,144,106,170,64,106,169,0,106,169,0,105,170,64,20,106,144,0,106,164,0,26,169,0,26,169,0,6,164,0,6,144,0,1,64  };
 
 const uint8_t font[64][6] PROGMEM = {
   {00,00,00,00,00,00}				,//  Space
@@ -191,11 +181,6 @@ void renderString(uint8_t x, uint8_t y,const char* s, uint8_t attribute,  uint16
   }
 }
 
-void mode1Image(uint8_t x, uint8_t y, uint8_t* data, uint8_t bytesWide, uint8_t height) {
-
-}
-
-
 uint8_t palette[] = {0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef};
 uint8_t testSprite[] =
 { 0b00000110,0b00111111,0b00000011,0b00011011,
@@ -212,20 +197,34 @@ uint8_t testSprite[] =
   0b11000110,0b11111111,0b11000011,0b11011011
 };
 
-void testRenderMode1(uint16_t x, uint8_t y,uint8_t mode, uint8_t flags) {
+void testBlit(uint16_t x, uint8_t y,uint8_t mode, uint8_t flags) {
 
-    PORT_MODE1_DISPLAY_START  = (uint16_t)(&testSprite);
-    PORT_MODE1_BYTES_WIDE  = 4;
-    PORT_MODE1_HEIGHT = 12;
-    PORT_MODE1_LINE_INCREMENT = 4;
-    PORT_MODE1_PALETTE_START = (uint16_t)(&palette);
+    PORT_BLIT_IMAGE_START  = (uint16_t)(&testSprite);
+    PORT_BLIT_BYTES_WIDE  = 4;
+    PORT_BLIT_HEIGHT = 12;
+    PORT_BLIT_LINE_INCREMENT = 4;
+    PORT_BLIT_PALETTE_START = (uint16_t)(&palette);
 
-    PORT_MODE1_FLAGS  = flags;
+    PORT_BLIT_FLAGS  = flags;
 
     setPixelCursor(x,y);
 
     PORT_DISPLAY_CONTROL = mode;
 
+}
+
+void drawImageData(uint16_t x, uint8_t y, uint8_t width_in_bytes, uint8_t height, const  uint8_t* image,const uint8_t* palette_table, uint8_t mode, uint8_t flags) {
+  PORT_BLIT_IMAGE_START  = (uint16_t)(image);
+  PORT_BLIT_BYTES_WIDE  = width_in_bytes;
+  PORT_BLIT_HEIGHT = height;
+  PORT_BLIT_LINE_INCREMENT = width_in_bytes;
+  PORT_BLIT_PALETTE_START = (uint16_t)(palette_table);
+
+  PORT_BLIT_FLAGS  = flags;
+
+  setPixelCursor(x,y);
+
+  PORT_DISPLAY_CONTROL = mode;
 }
 
 int main (void)
@@ -240,7 +239,7 @@ int main (void)
 
   uint16_t data = 0;
   uint8_t lastTime = 5;
-  uint8_t mode = 0x84;
+  uint8_t mode = 0x74;
     for (;;)  {
       uint8_t now = PORT_TIME;
       uint8_t nextStep = now>lastTime;
@@ -248,7 +247,7 @@ int main (void)
 
       if (nextStep) {
         mode+=1;
-        if (mode > 0x84) mode=0x81;
+        if (mode > 0x74) mode=0x71;
       }
 
 
@@ -294,28 +293,28 @@ int main (void)
       const uint8_t doublex = 0x20;
       const uint8_t doubley = 0x10;
 
-      testRenderMode1(50,30,mode,0);
-      testRenderMode1(80,30,mode,0);
+      testBlit(50,30,mode,0);
+      testBlit(80,30,mode,0);
 
-      testRenderMode1(50,60,mode,0);
-      testRenderMode1(80,60,mode,flipx);
-      testRenderMode1(110,60,mode,flipy);
-      testRenderMode1(140,60,mode,flipx|flipy);
+      testBlit(50,60,mode,0);
+      testBlit(80,60,mode,flipx);
+      testBlit(110,60,mode,flipy);
+      testBlit(140,60,mode,flipx|flipy);
 
-      testRenderMode1(50,90,mode,doubley);
-      testRenderMode1(80,90,mode,doubley|flipx);
-      testRenderMode1(110,90,mode,doubley|flipy);
-      testRenderMode1(140,90,mode,doubley|flipx|flipy);
+      testBlit(50,90,mode,doubley);
+      testBlit(80,90,mode,doubley|flipx);
+      testBlit(110,90,mode,doubley|flipy);
+      testBlit(140,90,mode,doubley|flipx|flipy);
 
-      testRenderMode1(50,120,mode,doublex);
-      testRenderMode1(80,120,mode,doublex|flipx);
-      testRenderMode1(110,120,mode,doublex|flipy);
-      testRenderMode1(140,120,mode,doublex|flipx|flipy);
+      testBlit(50,120,mode,doublex);
+      testBlit(80,120,mode,doublex|flipx);
+      testBlit(110,120,mode,doublex|flipy);
+      testBlit(140,120,mode,doublex|flipx|flipy);
 
-      testRenderMode1(50,140,mode,doublex|doubley);
-      testRenderMode1(80,140,mode,doublex|doubley|flipx);
-      testRenderMode1(110,140,mode,doublex|doubley|flipy);
-      testRenderMode1(140,140,mode,doublex|doubley|flipx|flipy);
+      testBlit(50,140,mode,doublex|doubley);
+      testBlit(80,140,mode,doublex|doubley|flipx);
+      testBlit(110,140,mode,doublex|doubley|flipy);
+      testBlit(140,140,mode,doublex|doubley|flipx|flipy);
 
       //write a grid of rectangles showing the serial pixel output palette
       for (uint16_t ty=0;ty <4; ty++) {
@@ -328,8 +327,8 @@ int main (void)
       uint16_t x=PORT_MOUSEX;
       uint16_t y=PORT_MOUSEY;
 
-      //draw a mouse pointer using serial pixel output
-      setImage(x,y,8,12,arrow,8);
+
+      drawImageData(x,y,3,16,arrow,arrowPal,0x72,0);
 
       //put frame onscreen in lowres
       PORT_DISPLAY_CONTROL=0x00;

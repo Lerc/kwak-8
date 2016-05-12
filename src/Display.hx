@@ -185,7 +185,7 @@ class Display
 		}
 	}	
 	
-	public function renderMode1(avr:AVR8, pixelsPerByte : Int = 3) {
+	public function blitImage(avr:AVR8, pixelsPerByte : Int = 3) {
 		function render2PixelPerByteScan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
 			var destWalk = lineStart;
 			var srcWalk = srcLine;
@@ -208,7 +208,7 @@ class Display
 						if (doubleX) {
 							pixelData[destWalk+1] = palette[mainPaletteIndex];
 						}
-					}
+					} 
 					destWalk += nextPixel;
 				}
 			}
@@ -256,7 +256,7 @@ class Display
 			
 			for (b in 0...bytesWide) {
 				var byte = avr.ram[srcWalk++];
-				var microPalette = (byte >> 4) & 0x0C;
+				var microPalette = (byte  &0xC0)>> 4;
 				for (i in 0...4) {
 					var pix = (byte & 0xC0) >> 6;
 					byte = byte << 2;   
@@ -333,14 +333,18 @@ class Display
 			 case 4: render4PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
 			 case 8: render8PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
 			}
+
+			lineStart += nextLine;
 			
 			if (doubleY) {
-				for (tx in 0...pixelsWide) {
-					pixelData[lineStart + frameBufferWidth + tx] = pixelData[lineStart + tx];
+				switch (pixelsPerByte) {
+				 case 2: render2PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
+				 case 3: render3PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
+				 case 4: render4PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
+				 case 8: render8PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
 				}
-				lineStart += nextLine * 2;
-			} else {				
-				lineStart += nextLine;
+				lineStart += nextLine;			
+
 			}
 			
 			srcLine+= lineIncrement;

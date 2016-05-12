@@ -3,15 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <title>Simple Sprite Ed</title>
-    
-    
-    
-    
         <link rel="stylesheet" href="css/style.css">
-
-    
-    
-    
   </head>
 
   <body>
@@ -38,6 +30,9 @@
 </div>
 
 <div class="control panel">
+  <div class="output panel">
+    <button>Generate Output</button>
+  </div>
   <div class="dimentions panel">
     <div>
       <input id="SpriteWidth" type="number" min="1" max="256" value="8"/>
@@ -89,12 +84,28 @@
 <div class="workspace panel">
   <canvas width="512" height="512"> </canvas>
 </div>
+<div class="examples panel"> 
+  <canvas width="512" height="512"> </canvas>
+</div>
+<div class="pixelformats">
+Images can use one of four pixel formats with 2,3,4 or 8 pixels per byte<p>
 
+All images use a MicroPalette of 2,4 or 16 colours.  Each entry in the MicroPalette can refer to any one of the Arne16 palette. Middle click on the palette control to reasign the entry<p>
+If the MicroPalette Entry #0 is set to the Arne16 #0 (Black) color #0 is transparent.  Any other MicroPalette entry set to #0 will be black<p>
+
+The 2,4 and 8 pixel-per-byte formats can have any pixel set to one of 16, 4 and 2 colours respectively.
+
+The 3 pixel-per-byte format may use all 16 colours but each byte(3 pixels) must use the same set of 4 MicroPalette colours of
+ <ul> <li>0..3</li> <li>4..7</li> <li>8..11</li> <li>12..15</li> </ul>
+
+You may map multiple MicroPalette colours to the same Arne16 palette entry.
+
+</div>
 <div id="note"></div>
 
     <script src='http://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.2/jquery.min.js'></script>
-
-        <script src="js/index.js"></script>
+	<script src="js/lzo1x.js"></script>
+    <script src="js/index.js"></script>
 
     
     
