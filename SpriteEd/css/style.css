@@ -103,10 +103,10 @@
 
 canvas {
     background-image:
-      -moz-linear-gradient(45deg, #000 25%, transparent 25%), 
-      -moz-linear-gradient(-45deg, #000 25%, transparent 25%),
-      -moz-linear-gradient(45deg, transparent 75%, #000 75%),
-      -moz-linear-gradient(-45deg, transparent 75%, #000 75%);
+      -moz-linear-gradient(45deg, #ccc 25%, transparent 25%), 
+      -moz-linear-gradient(-45deg, #ccc 25%, transparent 25%),
+      -moz-linear-gradient(45deg, transparent 75%, #ccc 75%),
+      -moz-linear-gradient(-45deg, transparent 75%, #ccc 75%);
     background-image:
       -webkit-gradient(linear, 0 100%, 100% 0, color-stop(.25, #ccc), color-stop(.25, transparent)), 
       -webkit-gradient(linear, 0 0, 100% 100%, color-stop(.25, #ccc), color-stop(.25, transparent)),

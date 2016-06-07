@@ -50,7 +50,6 @@ $(".MicroPalette>.PaletteEntry").on( "mousedown" ,
 		here.left+=$(e.target).width();
 		here.left+="px";
 		here.top+="px";
-		console.log(here);
 		$(".Palette").css(here);
 		$(".popup").addClass('showing').data({triggeredBy : e.target});
 	    break;
@@ -63,7 +62,6 @@ $(".MicroPalette>.PaletteEntry").on( "mousedown" ,
 		$(".MicroPalette>.PaletteEntry").removeClass("altpen");
 		$(e.target).addClass("altpen");
 		altpen=parseInt($(e.target).attr("data-index"));
-		console.log(e);
 		e.preventDefault();
 		break;
     }
@@ -109,7 +107,7 @@ $(".output>button").on("click",
   
 function generateCSource(sprite) {
   var result = "const uint8_t spriteName_Palette[] PROGMEM = {0x00,0x21,0x23,0x45,0x67,0x89,0xab,0xcd}; \n";
-  result+= "const uint8_t spriteName_data PROGMEM = { " + new Array(sprite.data) + " };\n";
+  result+= "const uint8_t spriteName_data[] PROGMEM = { " + [].slice.call(sprite.data) + " };\n";
   
   return result;
 }  
@@ -346,7 +344,6 @@ $(canvas).on("mousedown",
 	if (dragging === null) {
 	  return
 	}
-	console.log(e.offsetX,e.offsetY);
 	paint(Math.floor(e.offsetX/viewScale),Math.floor(e.offsetY/viewScale),dragging);	
   }
 );
