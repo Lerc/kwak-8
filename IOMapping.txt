@@ -3,11 +3,12 @@ Display is a 512x392 virtual FrameBuffer.
 The visible region is a window(480x360 or 240x180) into FrameBuffer
 
 
+
 Mode 0: is a mode using a single byte pixel data and a single byte colour data to generate a 3x3 block in any two of 16 colours.
 
  
  
-Display_port_start = 0x40; 
+Display_port_start = 0x40 ; display ports are write only.  
  
 FrameBuffer_Control  +00   Generate Display  
 	Write Value
@@ -45,24 +46,29 @@ Mode_port_start = Display_port_start + 0x08
  mode0_ColorData_lineIncrement +07 default 64    pixel data bytes per line vvvvvvvv000  (v<<3)
 	
 
- mode1_ImageData_L +00
- mode1_ImageData_H +01
- mode1_ImageBytesWide + 02
- mode1_ImageHeight +3
- mode1_ImageData_LineIncrement +04
- mode1_PaletteData_L +5
- mode1_PaletteData_H +6
- mode1_Flags +7           FlipX, FlipY, DoubleX, DoubleY   4 bits reserved 
+blit_port_start = Display_port_start + 0x08   ;  this is the same port space as the mode ports 
+ blit_ImageData_L +00
+ blit_ImageData_H +01
+ blit_ImageBytesWide + 02
+ blit_ImageHeight +3
+ blit_ImageData_LineIncrement +04
+ blit_PaletteData_L +5
+ blit_PaletteData_H +6
+ blit_Flags +7           FlipX, FlipY, DoubleX, DoubleY   4 bits reserved 
  
+   
  
- 
- input base = 0x48
+ input base = 0x48  ; the read only inputs share addresses with the display output ports. 
  button_state_0 + 0  Left Up Right Down Enter Esc Ctrl Shift  
  button_state_1 + 1  A W D S SPACE Mouse1 Mouse2 Mouse3
  mouseX +2
  mouseY +3
  ticker +4   increments on each frame of host device.
  timer  +5   increments once per second 
+ console + 6  buffers a few chars. reads as zero when buffer is empty. reading the port removes the item from the buffer.
+ 
+ 
+ 
  
  
  
