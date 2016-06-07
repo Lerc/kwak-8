@@ -168,18 +168,17 @@ class Display
 
 				//cellPixels = 0x55;
 				var p = cellPixels;
-				pixelData[outWalk] = palette[a];
-				pixelData[outWalk+1] = palette[(p&1)==0?a:b];
-				pixelData[outWalk+2] = palette[(p&2)==0?a:b];
+				pixelData[outWalk] = palette[(p&1)==0?a:b];
+				pixelData[outWalk+1] = palette[(p&2)==0?a:b];
+				pixelData[outWalk+2] = palette[(p&4)==0?a:b];
 
-				pixelData[outWalk+frameBufferWidth] = palette[(p&4)==0?a:b];
-				pixelData[outWalk+frameBufferWidth+1] = palette[(p&8)==0?a:b];
-				pixelData[outWalk+frameBufferWidth+2] = palette[(p&16)==0?a:b];
+				pixelData[outWalk+frameBufferWidth] = palette[(p&8)==0?a:b];
+				pixelData[outWalk+frameBufferWidth+1] = palette[(p&16)==0?a:b];
+				pixelData[outWalk+frameBufferWidth+2] = palette[(p&32)==0?a:b];
 
-				pixelData[outWalk+frameBufferWidth*2] = palette[(p&32)==0?a:b];
-				pixelData[outWalk+frameBufferWidth*2+1] = palette[(p&64)==0?a:b];
-				pixelData[outWalk+frameBufferWidth*2+2] = palette[(p&128)==0?a:b];
-				
+				pixelData[outWalk+frameBufferWidth*2] = palette[(p&64)==0?a:b];
+				pixelData[outWalk+frameBufferWidth*2+1] = palette[(p&128)==0?a:b];
+				pixelData[outWalk+frameBufferWidth*2+2]= palette[a];
 				outWalk += 3;
 			}
 		}

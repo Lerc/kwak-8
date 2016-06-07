@@ -6,9 +6,15 @@ import js.html.CanvasElement;
 import js.html.CanvasRenderingContext2D;
 import js.html.DivElement;
 import js.html.Document;
+import js.html.DragEvent;
+import js.html.Event;
+import js.html.FileReader;
+import js.html.HTMLAllCollection;
 import js.html.ImageData;
+import js.html.KeyboardEvent;
 import js.html.MouseEvent;
 import js.html.Node;
+import js.html.OptionElement;
 import js.html.Uint8ClampedArray;
 import js.html.Uint32Array;
 
@@ -28,7 +34,7 @@ class EmulatortHost
 	var disassemblyView : DivElement;
 	var avr : AVR8;
 	
-	var halted : Bool = true;
+	var halted(default,set) : Bool = true;
 	
 	var registerDiv = new Array<DivElement>();
 	var pcDiv:DivElement;
@@ -54,7 +60,7 @@ class EmulatortHost
 	//var testProgram = haxe.Resource.getString("minimalc"); 
 	//var testProgram = haxe.Resource.getString("hello");  
 
-		var testProgram = haxe.Resource.getString("spritish");   
+	var testProgram = haxe.Resource.getString("blitTest");   
 	var frameBuffer : ImageData; 
 	 
 	var scaleBuffer : ImageData;
@@ -64,8 +70,31 @@ class EmulatortHost
 	var tickCounter : Int = 0;
 	var timeCounter : Int = 0;
 	
+	var rawKeymap : Array<Bool> = [];
+	
+	var buttonMap : Array<Int> = [37, 38, 39, 40, 13, 27, 17, 16, 65, 87, 68, 83, 32, 90, 88, 8];
+	var keyBuffer : List<Int> = new List<Int>();
+	var lastFrameTimeStamp : Float = 0;
+	var magicPasteBufferindex = 0;
+	var magicPasteBuffer:String = "(defun mid (a b) (if (and (listp a) (listp b)) (mapcar mid a b) (/ (+ a b) 2)))"
+		+ "(defun tri (a b c d) (if (> d 1) (progn (tri (mid a b) (mid b c) (mid a b) (- d 1)) (tri a (mid a b) (mid a c) (- d 1) ) (tri b (mid b a) (mid b c) (- d 1) ) (tri c (mid c a) (mid c b) (- d 1)) ) ) (progn (lin a b) (lin b c) (lin c a)))" 
+		+ "(defun lin (a b) (moveto a) (lineto b) ) (tri '(100 70) '(50 180) '(150 180) 4)";
 	public function new() 
 	{
+		untyped Browser.window.breakPoint = 0xffff00;
+		var combo = Browser.document.createSelectElement();
+
+		combo.add(resourceCombo("blitTest", "Blit Mode test"));
+		combo.add(resourceCombo("inputTest", "Input Test"));
+		combo.add(resourceCombo("pixelTest", "Pixel rendering test"));
+		combo.add(resourceCombo("Lisp", "uLisp"));
+		
+		Browser.document.body.appendChild(combo);
+
+		combo.onchange = function (e:Event) {
+			loadHexFile(combo.value);
+		}
+		
 		displayCanvas = Browser.document.createCanvasElement();
 		displayCanvas.addEventListener('mousemove', function(e:MouseEvent){mouseX = e.clientX; mouseY = e.clientY; });
 		
@@ -117,20 +146,17 @@ class EmulatortHost
 		avr = new AVR8();
 		updateRegisterView();
 
-		runButton.onclick = function() { halted = !halted; runButton.textContent = halted?"Run":"Stop"; if (halted) setDisassamblyView(avr.PC); };
+		runButton.onclick = function() { halted = !halted;  };
 		stepButton.onclick = function() { if (halted) avr.exec(); setDisassamblyView(avr.PC); updateRegisterView(); };
 
+		loadHexFile(testProgram);
 		
-		var hexFile = new HexFile(testProgram);
-		var totalData = 0;
-		for (mem in hexFile.data) {
-			avr.writeProgMem(mem.address, mem.data);
-			totalData += mem.data.length;
-		  //trace('added ${mem.data.length} bytes at ${mem.address}');
-		}
-		trace('loaded ${totalData} bytes from hex file');
-		
-
+		displayCanvas.addEventListener("drop", handleFileDrop);
+		displayCanvas.addEventListener("dragover",  function (evt) {
+			evt.stopPropagation();
+			evt.preventDefault();
+			evt.dataTransfer.dropEffect = 'copy'; 
+		});
 		/* 
 		// first test program 
 		avr.progMem[0] = 0x1010;
@@ -144,32 +170,86 @@ class EmulatortHost
 		
 		installPortIOFunctions();
 		
-		var timer = new Timer(16);
-		timer.run = function() { 
-			//avr.tick(40000+Math.floor(Math.random()*5)); //random fluctuations so display update and code don't strobe
-			tickCounter = (tickCounter + 1) & 0xff;
-			if (halted) return;
-			avr.tick(130000);
-			//avr.tick(320);
-			updateRegisterView();
-			//renderMode0();
-
-		};
-
 		var halfsecondTimer = new Timer(500);
 		var lastTime = avr.clockCycleCount;
 		halfsecondTimer.run = function() { 
 			var clocksPassed = avr.clockCycleCount - lastTime;
 			lastTime = avr.clockCycleCount;
 			timeCounter = (timeCounter + 1) & 0x1ff;
-			
+			updateRegisterView();
 			clockSpeedDiv.textContent = (Math.round(clocksPassed / 500) / 1000) + " MHz";	
+			
 			//renderMode0();
 		};
 
 		
+		Browser.window.onkeydown = function (e : KeyboardEvent) {
+			var code = e.keyCode;
+			if (e.key == "PageDown") {
+				magicPaste();
+				e.preventDefault();
+			}
+			rawKeymap[code] = true;
+		}
+		Browser.window.onkeyup = function (e : KeyboardEvent) {
+			var code = e.keyCode;
+			rawKeymap[code] = false;
+
+		}
+		Browser.window.onkeypress = function (e : KeyboardEvent) {
+			var code = e.keyCode;
+			if (code == 0) code = e.charCode;
+			
+			keyBuffer.add(code);
+			while (keyBuffer.length > 10) {
+				keyBuffer.pop();
+			}
+			e.preventDefault();
+
+		}
+		
+		Browser.window.requestAnimationFrame(handleAnimationFrame);
 	}
   
+	function resourceCombo(resource, caption):OptionElement  {		
+		var result = Browser.document.createOptionElement();
+		result.textContent = caption;
+		result.value = haxe.Resource.getString(resource);	
+		return result;
+	}
+	
+	function magicPaste() {
+		if (magicPasteBufferindex < magicPasteBuffer.length) {
+			var code = magicPasteBuffer.charCodeAt(magicPasteBufferindex++);
+			keyBuffer.add(code);			
+		}
+		
+	}
+	function set_halted(newValue : Bool) : Bool {
+		if (newValue != halted) {
+			halted = newValue;
+			runButton.textContent = halted?"Run":"Stop"; if (halted) setDisassamblyView(avr.PC);			
+		}
+		return newValue;
+	}
+	
+	function handleAnimationFrame(time:Float) : Void {
+		tickCounter = (tickCounter + 1) & 0xff;		
+		var elapsed = time-lastFrameTimeStamp;
+		lastFrameTimeStamp = time;
+		var clockCyclesToEmulate = Math.floor(8000 * elapsed);
+		if (clockCyclesToEmulate > 200000) clockCyclesToEmulate = 200000;
+
+		avr.breakPoint = untyped Browser.window.breakPoint / 2;
+
+		if (!halted) avr.tick(clockCyclesToEmulate);
+		
+		if (avr.PC == avr.breakPoint) {
+			halted = true;
+		}
+		Browser.window.requestAnimationFrame(handleAnimationFrame);
+	}
+	
 	function installPortIOFunctions() {
 		var inPort = avr.inPortFunctions;
 		var outPort = avr.outPortFunctions;
@@ -247,12 +327,23 @@ class EmulatortHost
 		
 		var inputsPort = 0x48;   // inputs overlap mode output registers
 		
-		inPort[inputsPort + 0x00] = function () { return 0; }
-		inPort[inputsPort + 0x01] = function () { return 0; }
+		inPort[inputsPort + 0x00] = function () { return read8Buttons(0); }
+		inPort[inputsPort + 0x01] = function () { return read8Buttons(8); }
 		inPort[inputsPort + 0x02] = function () { return (mouseX >> 1)& 0xff; }
 		inPort[inputsPort + 0x03] = function () { return (mouseY >> 1)& 0xff; }
 		inPort[inputsPort + 0x04] = function () { return tickCounter; }
-		inPort[inputsPort + 0x05] = function () { return timeCounter>>1; }
+		inPort[inputsPort + 0x05] = function () { return timeCounter >> 1; }
+		inPort[inputsPort + 0x06] = function () { if (keyBuffer.isEmpty()) return 0 else return keyBuffer.pop();} 
+	}
+	
+	function read8Buttons(startingAt) {
+		
+		var result = 0;
+		for (i in 0...8) {
+			var bit = rawKeymap[buttonMap[startingAt + i]]?1:0;
+			result += bit << i;
+		}
+		return result;
 	}
 	
 	public static function makeDiv(inside : Node, className : String = ""):DivElement{
@@ -370,6 +461,30 @@ class EmulatortHost
 			}
 		}
 	}
+
+	function loadHexFile(text : String) {
+		avr.clear();
+		var hexFile = new HexFile(text);
+		var totalData = 0;
+		for (mem in hexFile.data) {
+			avr.writeProgMem(mem.address, mem.data);
+			totalData += mem.data.length;
+		  //trace('added ${mem.data.length} bytes at ${mem.address}');
+		}
+		trace('loaded ${totalData} bytes from hex file');
+
+	}
+	function handleFileDrop(e : DragEvent) {
+		e.stopPropagation();
+        e.preventDefault();
 		
+		var files = e.dataTransfer.files;
+		if (files.length == 1) {
+			var file = files[0];
+			var reader = new FileReader();
+			reader.onload = function () {loadHexFile(reader.result); };
+			reader.readAsText(file);
+		}
+	}
 	
 }

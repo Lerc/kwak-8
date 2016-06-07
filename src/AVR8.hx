@@ -145,6 +145,7 @@ class AVR8
 	public var ram(default,null) : Uint8Array;
 	var ramSigned : Int8Array;
 	var ramAsWords : Uint16Array;
+	public var breakPoint : Int;
 	public var log : String = ""; 
 	public var progMem(default,null) : Uint16Array;
 	public var progMemAsBytes(default,null) : Uint8Array;
@@ -202,6 +203,21 @@ class AVR8
 		progMemAsBytes = new Uint8Array(progMem.buffer);
 	}
 	
+	public function clear() {
+		for (byte in ram) {
+			byte = 0;
+		}
+		for (word in progMem) {
+			word = 0;
+		}
+		
+		for (i in 0...255) {
+			memStore(i, 0);  //clear IO ports
+		}
+		PC = 0;
+		interruptDepth = 0;
+		clockCycleCount = 0;
+	}
 	public function writeProgMem(startAddress : Int32, bytes : Array<Int>) {
 		 var walk = 0;
 		 for (b in bytes) {
@@ -267,13 +283,13 @@ class AVR8
 		result &= 0xff;
 		var borrows = (~d & r) | (r & result) | (~d & result);
 		var overflows = (d & ~r & ~result) | (~d & r & result); 
-		var carries = (~d & r) | ( r & result) | (result & ~d); 
+		var carries = (( (~d & r) | ( r & result) | (result & ~d) ) & 0x80) ==0x80; 
 		var oldZ = (SREG & ZFLAG);
 		SREG &= ~(HFLAG | SFLAG | VFLAG  | NFLAG | ZFLAG | CFLAG);
 		var n = result & 0x80;
 		var v = overflows & 0x80; 
 		if ((borrows & 0x08) != 0) SREG |= HFLAG; 
-		if (((r+carry) &0xff) > (d&0xff)) SREG |= CFLAG;
+		if (carries) SREG |= CFLAG;
 		//if ((carries & 0x80) !=0) SREG |= CFLAG;
 		if (n !=0) SREG |= NFLAG; 
 		if (v !=0) SREG |= VFLAG;
@@ -516,17 +532,17 @@ class AVR8
 				setFlagsFromLogicResult(ram[d]);								
 			}		
 			case 0x8000 | 0xa000: {  // ldd std
-				var q = (instruction & 0x0007) | ( (instruction & 0x0C) >> 7) | ( (instruction  & 0x2000) >> 8 );
+				var q = (instruction & 0x0007) | ( (instruction & 0x0C00) >> 7) | ( (instruction  & 0x2000) >> 8 );
 				var d = (instruction & 0x01f0) >> 4;
 				var store = (instruction & 0x0200) != 0;
 				var useY = (instruction & 0x0008) != 0;
 				
 				if (store) {
 					if (useY) {
-						//traceInstruction(' STD r$d,Y+$q');
+						//traceInstruction(' STD Y+$q,r$d');
 						memStore(Y + q, ram[d]);
 					} else {
-						//traceInstruction(' STD r$d,Z+$q');
+						//traceInstruction(' STD Z+$q,r$d');
 						memStore(Z + q, ram[d]);
 					}
 				} else {
@@ -804,7 +820,7 @@ class AVR8
 								if (ram[d] == 0) SREG |= ZFLAG;
 							}
 							case 0x9404: { // no instruction for this !?!
-								
+								traceInstruction('not an instruction !?!');
 							}
 							case 0x9405: { //asr
 								var d = (instruction & 0x01f0) >> 4;
@@ -862,12 +878,15 @@ class AVR8
 										SREG |= IFLAG;
 									}
 									case 0x9588: { //sleep
+										traceInstruction('sleep not implemented');
 										
 									}
 									case 0x9598: { //break
+										traceInstruction('break not implemented');
 										
 									}
 									case 0x95a8: { //wdr
+										traceInstruction('wdr not implemented');
 										
 									}
 									case 0x95C8: { //lpm R0,Z
@@ -877,26 +896,28 @@ class AVR8
 										r0 = progMemAsBytes[RAMPZ<<16+Z];										
 									}
 									case 0x95e8: { // spm
+										traceInstruction('spm not implemented');
 										
 									}
 									case 0x95f8: { // spm Z+
-										
+										traceInstruction('spm Z+ not implemented');										
 									}
 								}
 							}
 							case 0x9409: { // ijmp eijmp icall eicall 
 								switch (instruction) {
 									case 0x9409: {  // ijmp
-										
+										nextPC = Z;
 									}
 									case 0x9419: { //eijmp
-										
+										traceInstruction('eijmp not implemented');
 									}
 									case 0x9509: { //icall
-										
+										push16(PC + 1);
+										nextPC = Z;									
 									}
 									case 0x9519: { //eicall
-										
+										traceInstruction('eicall not implemented');										
 									}
 								}
 							}
@@ -929,30 +950,43 @@ class AVR8
 					}
 					case 0x9600: {  // addiw sbiw
 						var d = ((instruction & 0x0030) >> 3) + 24;
-						var k = (instruction & 0x00C0) >> 2 | (instruction & 0x000f);
+						var k = ((instruction & 0x00C0) >> 2) | (instruction & 0x000f);
 						var sub = (instruction & 0x0100) == 0x0100;
-						if ( sub ) k = -k;
-						var result = ram[d] + (ram[d + 1] << 8) + k;
+						var value = ram[d] + (ram[d + 1] << 8);
+						
 						SREG &= ~(SFLAG | VFLAG  | NFLAG | ZFLAG | CFLAG);
-						
-						var n = (result & 0x8000) != 0;						
-						var v = n || (ram[d + 1] & 0x80) != 0;
-						var z = (result & 0xffff) == 0 ;
-						var c = !n || ((ram[d + 1] & 0x80) == 0);
-						
-						if (sub) { //c and v are swapped for sub
-							var hold = c;
-							c = v;
-							v = hold;
+						var result, v, n, z, c;
+
+						var rdh7 = (ram[d + 1] & 0x80) != 0;
+
+						if ( sub ) {
+							//trace ('SUBIW $d,$k');
+							result =  value - k;
+
+							n = (result & 0x8000) != 0;						
+							v = !n && rdh7;
+							z = (result & 0xffff) == 0 ;
+							c =  n && !rdh7;
+
+						} else {
+							result =  value + k;
+
+							n = (result & 0x8000) != 0;						
+							v = n && !rdh7;
+							z = (result & 0xffff) == 0 ;
+							c = !n && rdh7;
+
 						}
+						
 						if (n) SREG |= NFLAG;
 						if (v) SREG |= VFLAG;
 						if (n != v) SREG |= SFLAG; 
 						if (z) SREG |= ZFLAG;
-						if (c) SREG |= ZFLAG;
+						if (c) SREG |= CFLAG;
 
 						ram[d] = result & 0xff;
 						ram[d + 1] = (result >> 8) & 0xff;
+						
 
 					}
 					case 0x9800: { // cbi sbic
@@ -1026,6 +1060,7 @@ class AVR8
 		var endTime = clockCycleCount + clockCycles;
 		for (i in 0...10000000) {		
 			exec();
+			if (PC == breakPoint) break;
 			if (clockCycleCount > endTime) break;
 		}
 	}
@@ -1214,9 +1249,9 @@ class AVR8
 				
 				if (store) {
 					if (useY) {
-						result='STD r$d,Y+$q';
+						result='STD Y+$q,r$d,';
 					} else {
-						result='STD r$d,Z+$q';
+						result='STD Z+$q,r$d,';
 					}
 				} else {
 					if (useY) {
