@@ -71,7 +71,7 @@ class EmulatortHost
 	var timeCounter : Int = 0;
 	
 	var rawKeymap : Array<Bool> = [];
-	
+	var mouseButtonState : Array<Bool> = [false, false, false];
 	var buttonMap : Array<Int> = [37, 38, 39, 40, 13, 27, 17, 16, 65, 87, 68, 83, 32, 90, 88, 8];
 	var keyBuffer : List<Int> = new List<Int>();
 	var lastFrameTimeStamp : Float = 0;
@@ -97,6 +97,9 @@ class EmulatortHost
 		
 		displayCanvas = Browser.document.createCanvasElement();
 		displayCanvas.addEventListener('mousemove', function(e:MouseEvent){mouseX = e.clientX; mouseY = e.clientY; });
+		displayCanvas.addEventListener('mousedown', function(e:MouseEvent){ mouseButtonState[e.button] = true;});
+		displayCanvas.addEventListener('mouseup', function(e:MouseEvent){ mouseButtonState[e.button] = false;});
+		displayCanvas.addEventListener('contextmenu', function(e:MouseEvent){ e.preventDefault(); });
 		
 		Browser.document.body.appendChild(displayCanvas);
 		display = displayCanvas.getContext2d();
@@ -157,16 +160,6 @@ class EmulatortHost
 			evt.preventDefault();
 			evt.dataTransfer.dropEffect = 'copy'; 
 		});
-		/* 
-		// first test program 
-		avr.progMem[0] = 0x1010;
-		avr.progMem[1] = 0x940c;		
-		avr.progMem[2] = 0x0005;
-		avr.progMem[3] = 0x94c3;
-		avr.progMem[4] = 0x0c0c;
-		avr.progMem[5] = 0x940c;
-		avr.progMem[6] = 0x0003;
-		*/
 		
 		installPortIOFunctions();
 		
@@ -178,11 +171,8 @@ class EmulatortHost
 			timeCounter = (timeCounter + 1) & 0x1ff;
 			updateRegisterView();
 			clockSpeedDiv.textContent = (Math.round(clocksPassed / 500) / 1000) + " MHz";	
-			
-			//renderMode0();
 		};
 
-		
 		Browser.window.onkeydown = function (e : KeyboardEvent) {
 			var code = e.keyCode;
 			if (e.key == "PageDown") {
@@ -279,6 +269,8 @@ class EmulatortHost
 				display.putImageData(scaleBuffer, 0, 0);
 			case 0x80:
 				displayGenerator.renderMode0(avr);
+			case 0x81:
+				displayGenerator.renderMode1(avr);
 			case 0x71:
 				displayGenerator.blitImage(avr,8); 
 			case 0x72:
@@ -328,7 +320,7 @@ class EmulatortHost
 		var inputsPort = 0x48;   // inputs overlap mode output registers
 		
 		inPort[inputsPort + 0x00] = function () { return read8Buttons(0); }
-		inPort[inputsPort + 0x01] = function () { return read8Buttons(8); }
+		inPort[inputsPort + 0x01] = function () { return read8Buttons(8) | (mouseButtonState[0] ? 0x20:0) | (mouseButtonState[1] ? 0x40:0) | (mouseButtonState[2] ? 0x80:0) ; }
 		inPort[inputsPort + 0x02] = function () { return (mouseX >> 1)& 0xff; }
 		inPort[inputsPort + 0x03] = function () { return (mouseY >> 1)& 0xff; }
 		inPort[inputsPort + 0x04] = function () { return tickCounter; }

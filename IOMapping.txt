@@ -19,6 +19,7 @@ FrameBuffer_Control  +00   Generate Display
 	0x73 = blit 3 pixels per byte
 	0x74 = blit 2 pixels per byte
 	0x80 = Generate Mode 0   (fill framebuffer with 1.777bit per pixel data ( 16 bits per 9 pixels) )
+	0x81 = Generate Mode 1   (fill framebuffer with tile map )
 			
  
  displayShift  +01  default 0    framebuffer view offset  xxxxyyyy 
@@ -46,6 +47,17 @@ Mode_port_start = Display_port_start + 0x08
  mode0_ColorData_lineIncrement +07 default 64    pixel data bytes per line vvvvvvvv000  (v<<3)
 	
 
+ mode1_tile_image_start_L +00;
+ mode1_tile_image_start_H +01;   tile data is 256 * 8x8 *2bit =   4096 bytes
+ mode1_map_Data_start_L +02;
+ mode1_map_Data_start_H +03;	tile map entries are 2 bytes per tile  
+ mode1_Map_Data_lineIncrement+04;   map data bytes per line vvvvvvvv000  (v<<3)
+ mode1_palettes_start_L +05;     Palettes are 16 * 4 * 4bit entries = 32 bytes
+ mode1_palettes_start_H +06; 
+ mode1_shift +07;   xxxxyyyy
+ 
+ 
+ 
 blit_port_start = Display_port_start + 0x08   ;  this is the same port space as the mode ports 
  blit_ImageData_L +00
  blit_ImageData_H +01
@@ -60,7 +72,7 @@ blit_port_start = Display_port_start + 0x08   ;  this is the same port space as 
  
  input base = 0x48  ; the read only inputs share addresses with the display output ports. 
  button_state_0 + 0  Left Up Right Down Enter Esc Ctrl Shift  
- button_state_1 + 1  A W D S SPACE Mouse1 Mouse2 Mouse3
+ button_state_1 + 1  A W D S SPACE (Mouse1/Z) (Mouse2/X (Mouse3/BackSpace)
  mouseX +2
  mouseY +3
  ticker +4   increments on each frame of host device.

@@ -37,7 +37,7 @@ class Display
 	
 	public var serialPixelAddress: Int = 0; 
 	
-	var smallPalette : UInt8Array = new UInt8Array(16); 
+	var smallPalette : UInt8Array = new UInt8Array(64); 
 	
 	var palette : Uint32Array = new Uint32Array([
 		0xFF000000, 0xFF9D9D9D, 0xFFFFFFFF, 0xFF3326BE,
@@ -183,9 +183,79 @@ class Display
 			}
 		}
 	}	
+
+	public function renderMode1(avr:AVR8) {
+		var tileData_start : Int = modeData[0] + (modeData[1] << 8);
+		var mapData_start  : Int = modeData[2] + (modeData[3] << 8);
+		var paletteData_start  : Int = modeData[5] + (modeData[6] << 8);
+		var shiftX : Int = modeData[7]>>4;
+		var shiftY : Int = modeData[7]&0x0f;
+		var mapData_lineIncrement : Int = modeData[4]<<3;
+
+		var tilesWide :Int = 480 >>3;
+		var tilesHigh :Int = 360 >>3;
+
+		function drawTile(x,y,tileptr,tileAttribute ) {
+			function renderTileSpan(lineStart : Int, databytes : Int) {
+				var destWalk = lineStart;
+				var nextPixel = 1;
+
+				if ( (tileAttribute & 0x80) ==0 ) {  // flipX 
+					destWalk += 7;
+					nextPixel =-nextPixel;
+				}
+							
+				var microPalette = (tileAttribute << 2) & 0x3C;
+				for (i in 0...8) {
+					var pix = (databytes & 3);
+					databytes = databytes >> 2;   
+					var mainPaletteIndex = smallPalette[microPalette+pix];
+					
+					if ( (pix | mainPaletteIndex)  != 0 ) {
+						pixelData[destWalk] =  palette[mainPaletteIndex];
+					} 
+					destWalk += nextPixel;
+				}
+			}
+			
+			var flipY = (tileAttribute & 0x40) != 0;
+			
+			var displayoffset = y * frameBufferWidth + x;
+			var nextLine = frameBufferWidth;
+			var dataWalk = tileptr;
+			var nextByte = 2;			
+			if (flipY) {
+				dataWalk += 14;
+				nextByte = -2;
+			}
+			for (i in 0...8)  {
+				renderTileSpan(displayoffset, (avr.ram[dataWalk] <<8 )+ (avr.ram[dataWalk + 1] ));
+				dataWalk += nextByte;
+				displayoffset += nextLine;
+			}
+	}
+		for (p in 0...32) {
+			smallPalette[p*2]=avr.ram[paletteData_start + p] >> 4; 
+			smallPalette[p*2+1]=avr.ram[paletteData_start + p] &0x0f; 
+		}
+
+		var mapLine = mapData_start;
+		for (ty in 0...tilesHigh) {
+			var mapWalk = mapLine;
+			for (tx in 0...tilesWide) {
+				var tileIndex = avr.ram[mapWalk];
+				var tileAttribute = avr.ram[mapWalk + 1];
+				var tilePointer = tileData_start + tileIndex * 16;
+				drawTile(tx * 8 + shiftX, ty * 8 + shiftY, tilePointer, tileAttribute);
+				mapWalk += 2;
+				
+			}
+			mapLine+= mapData_lineIncrement;
+		}
+	}
 	
 	public function blitImage(avr:AVR8, pixelsPerByte : Int = 3) {
-		function render2PixelPerByteScan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
+		function render2PixelPerByteSpan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
 			var destWalk = lineStart;
 			var srcWalk = srcLine;
 			var nextPixel = doubleX ? 2:1;
@@ -214,7 +284,7 @@ class Display
 		}
 
 
-		function render3PixelPerByteScan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
+		function render3PixelPerByteSpan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
 			var destWalk = lineStart;
 			var srcWalk = srcLine;
 			var nextPixel = doubleX ? 2:1;
@@ -243,7 +313,7 @@ class Display
 			}
 		}
 
-		function render4PixelPerByteScan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
+		function render4PixelPerByteSpan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
 			var destWalk = lineStart;
 			var srcWalk = srcLine;
 			var nextPixel = doubleX ? 2:1;
@@ -271,7 +341,7 @@ class Display
 			}
 		}
 
-		function render8PixelPerByteScan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
+		function render8PixelPerByteSpan(lineStart : Int, bytesWide:Int, srcLine:Int, flipX : Bool,doubleX :Bool) {
 			var destWalk = lineStart;
 			var srcWalk = srcLine;
 			var nextPixel = doubleX ? 2:1;
@@ -327,20 +397,20 @@ class Display
 		for (ty in 0...height) { 
 			
 			switch (pixelsPerByte) {
-			 case 2: render2PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
-			 case 3: render3PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
-			 case 4: render4PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
-			 case 8: render8PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
+			 case 2: render2PixelPerByteSpan(lineStart, bytesWide, srcLine, flipX, doubleX);
+			 case 3: render3PixelPerByteSpan(lineStart, bytesWide, srcLine, flipX, doubleX);
+			 case 4: render4PixelPerByteSpan(lineStart, bytesWide, srcLine, flipX, doubleX);
+			 case 8: render8PixelPerByteSpan(lineStart, bytesWide, srcLine, flipX, doubleX);
 			}
 
 			lineStart += nextLine;
 			
 			if (doubleY) {
 				switch (pixelsPerByte) {
-				 case 2: render2PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
-				 case 3: render3PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
-				 case 4: render4PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
-				 case 8: render8PixelPerByteScan(lineStart, bytesWide, srcLine, flipX, doubleX);
+				 case 2: render2PixelPerByteSpan(lineStart, bytesWide, srcLine, flipX, doubleX);
+				 case 3: render3PixelPerByteSpan(lineStart, bytesWide, srcLine, flipX, doubleX);
+				 case 4: render4PixelPerByteSpan(lineStart, bytesWide, srcLine, flipX, doubleX);
+				 case 8: render8PixelPerByteSpan(lineStart, bytesWide, srcLine, flipX, doubleX);
 				}
 				lineStart += nextLine;			
 
