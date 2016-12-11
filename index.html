@@ -7,9 +7,39 @@
 
     <link rel="stylesheet" href="stylesheets/styles.css">
     <link rel="stylesheet" href="stylesheets/github-dark.css">
+    <link rel="stylesheet" href="stylesheets/font-awesome.min.css">
     <script src="javascripts/scale.fix.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 
+    <style>
+    noytable {
+  	background-color: azure;
+  	text-align: center;
+    }
+    notd {
+  	padding:2px 8px;
+    border: 1px solid black;
+  	box-shadow: 0px 0px 3px 1px;
+    }
+    .diagram {
+  	margin:10px;
+  	padding: 8px 8px;
+  	width : 300px;
+  	font-size: smaller;
+    }
+    .diagram>div>h4 {
+  	margin: 0;
+    }
+    .diagram>div {
+  	background-color : oldLace;
+  	padding: 8px 8px;
+  	border: 1px solid black;
+  	width :80%
+    }
+    .diagram>i {
+      font-size: 32px;
+    }
+    </style>
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
@@ -18,137 +48,123 @@
     <div class="wrapper">
       <header>
         <h1>Kwak-8</h1>
-        <p>An 8 bit Emulator of some sort</p>
+        <p>An 8 bit fantasy computer</p>
         <p class="view"><a href="https://github.com/Lerc/kwak-8">View the Project on GitHub <small>Lerc/kwak-8</small></a></p>
-        <ul>
+        <ul class="downloads">
           <li><a href="https://github.com/Lerc/kwak-8/zipball/master">Download <strong>ZIP File</strong></a></li>
           <li><a href="https://github.com/Lerc/kwak-8/tarball/master">Download <strong>TAR Ball</strong></a></li>
           <li><a href="https://github.com/Lerc/kwak-8">View On <strong>GitHub</strong></a></li>
         </ul>
       </header>
+
       <section>
-        <h1>
-<a id="emulator-for-an-8-bit-machine-that-never-existed" class="anchor" href="#emulator-for-an-8-bit-machine-that-never-existed" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Emulator for an 8 bit machine that never existed</h1>
+      The KWAK-8 never existed as a physical computer.   Like <a href="http://www.pico-8.com/">Lexaloffle's excellent PICO-8</a>.
+      The KWAK-8 is an emulated system for enthusiasts of constrained environments.<p/>
 
-<h2>
-<a id="hardware-specifications" class="anchor" href="#hardware-specifications" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Hardware Specifications</h2>
 
-<ul>
-<li>8-bit AVR compatible instruction set.</li>
-<li>128k Program memory</li>
-<li>64k RAM</li>
-<li>Display lowres(240x180) Hires(480x360)</li>
-<li>Predominantly 16 color (more available in some circumstances)</li>
-</ul>
+      When compared to the PICO-8 The KWAK-8 programming interface is much lower level.  The KWAK-8 uses an
+      instruction set compatible with the Arduino, and all interaction with the outside world is done
+      through IO/Ports.   Unlike emulators for Actual computers in the past, The KWAK-8 is much less
+      dependent on precise timing and can thus be emulated much more efficiently.<p>
+      <center>
+      <div class="specs">
+      <table>
+      <tr><td>Instruction set</td><td>8-bit AVR</td></tr>
+      <tr><td>RAM</td><td>64k</td></tr>
+      <tr><td>ROM</td><td>128k</td></tr>
+      <tr><td>Display</td><td>240x180<br><small>(hires mode 480x360)</small></td></tr>
+      <tr><td>Colours</td><td>16<sup>†</sup>  <img src="images/Arne16.png" alt="Arne's 16 coolour palette"></td></tr>
+      <tr><td>Speed</td><td>8Mhz<br><small>(probably)</small></td></tr>
+      <tr><td>Audio</td><td>None yet, planned</td></tr>
+      <tr><td>Storage</td><td>None yet,planned</td></tr>
+      </table>
+      <small>†256 colours available with CPU intensive PixelWriting.</small>
 
-<p>The Emulator aims to occupy a middle ground between 8-bit hardware of old and
-efficient emulation.</p>
+</div>
+      </center>
+      To give you an idea of the reolution. Here's a mockup at 240x180 using the 16 colour palette.
+      <center>
+      <img src="images/QuiteFresh_Arne16_240x180.png"> by <a href="http://quitefreshgames.tumblr.com/">Stefan Åhlin</a>
+      </center>
 
-<p>Most emulators that emulate real systems have to emulate all of the timing and
-hardware of a video beam based display. A Video beam output could be considered
-a write only display, with the limitation that the image must be written serially
-and with precice timing.</p>
+      Making the instruction set compatable with 8 the 8-bit avr means, that many tools designed for the Arduino ecosystem can be
+      repurposed to work on the Kwak-8.    This includes Assemblers, compilers and interpreted languages.
 
-<p>This emulator reduces the emulation cost by providing a write-only framebuffer
-which must be updated every frame.  The framebuffer does not need precice timing
-for each pixel, nor do the pixels need to be written in any particular order.</p>
+      The 8-bit AVR compatible instruction set means many tools designed for micro-controllers can be used with the KWAK-8.
+      You can write programs in assembly, C, or a variety of languages that already have AVR support.
+      <p/>
 
-<p>The framebuffer reduces the workload of the emulator greatly.  It does come at
-a cost in that an entire class of tricks that old computers could do are not
-available in this emulator.  There are no raster interrupts and there is no
-beam-racing.</p>
+      </section>
 
-<p>In compensation, what is provided is an emulated harware mechanism more
-appropriate to a frame-buffer output.  You may think of this as a kind of blitter
-if you wish.</p>
+      <section>
+      The main difference between the Kwak-8 architecture and real 8-bit computers and consoles is how they manage the display.
+      Most of the classic 8-bit computers connected to a television or monitor and generated their own image
+      to send out in the video signal.   The video image was generated as needed,  just in time for the video beam to pass.  There was not
+      nearly enough memory available at the time to provide a framebuffer with a ready made image.   The
+      consequence of this is that the image itself was a transient thing, with no real existence outside
+      of the time between data-fetch and pixel output.
+      <p/>
 
-<p>There are 'display mode' operations that update the entire display from RAM and
-hardware register settings.  There are image drawing fuctions that work analogous
-to sprites, they get drawn on top of the dispaly mode with additional harware
-operations.</p>
+      The ephemeral nature of the image is what lead to a lot of amazing tricks being performed on
+      the machines.  Hardware resources can be re-purposed multiple times during a video frame as long
+      as they are in the right place for the pixels currently being output.<p/>
 
-<p>There is a 256 colour serial output mode with some rudimentary blending options,
-A clever person should be able to get 24 bit images out of the system, but not
-likely at interactive speeds.</p>
+      What was a boon for old hardware is a drain on emulators though.  To accurately emulate those
+      old machines, you need incredibly precise timing.   Programs had to get all of their ducks in a row on
+      a deadline measured in microseconds.  Emulators have to note not only what happened, but when it
+      happened if they want to accurately reproduce the behaviour.<p/>
 
-<h2>
-<a id="how-to-develop-for-it" class="anchor" href="#how-to-develop-for-it" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>How To Develop for it?</h2>
 
-<p>The emulator supports hex files.  You can write programs in assembler or compile
- c programs with avr-gcc.   </p>
+      A Video beam output could be considered a write only display, with the constraint that the image
+      must be written serially and with precise timing. The KWAK-8 reduces emulation cost by relaxing
+      those constraints.  The display is still a write only device, but pixels may be written at any time
+      and need not be strictly serial. This means that an entire class of tricks that old computers could
+      do are not available in this emulator.  There are no raster interrupts and there is no beam-racing.<p/>
 
-<p>You can see a guide to developing C for AVR microcontrollers <a href="http://www.tldp.org/HOWTO/Avr-Microcontrollers-in-Linux-Howto/x207.html">here</a></p>
+      In compensation, what is provided is an emulated hardware mechanism more appropriate to
+      an emulator that is backed by a frame-buffer.
 
-<p>avr-gcc seems to need a commandline option to specify the architecture.  Since
-this is a device from my own imagination, it is not explicitly supported.  I use
-<code>-mmcu=atmega1284p</code> which is close.</p>
+      There are 3 basic forms of writing to the display device.
 
-<p>There are some example programs in the c directory.  There are examples that contain
-the entire program in the .c file so you can see exactly what is needed.</p>
+      <ul>
+      <li> <h4>Display modes </h4>  These set all of the pixels on the output display reading
+      from RAM and hardware registers.  The translation method of data to pixels is dependent on the mode
+      <li> <h4>Blitter.</h4> You can write rectangles of data to screen in pixel formats of 2,3,4,8 pixels per byte.
+      	  Blits can be X-flipped, Y-Flipped, X-Doubled, Y-Doubled, and support color 0 transparency.
+      </li>
+      <li>
+        <h4>Serial Pixels</h4>You can position a pointer at a display position and serially write bytes
+        to the display. This gives you access to 256 colour output.   There are also some blending options
+        available to multiply or add to the existing pixels.  This is the most versatile display output
+        mechanism but requires that the CPU do all of the display generation on its own.
+      </li>
+      </ul>
 
-<h2>
-<a id="hardware-registers" class="anchor" href="#hardware-registers" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Hardware Registers</h2>
+      A program might use any, or all three, of these mechanisms.  A common frame generation workflow might be
+      <center>
+      <div class="diagram">
+        <div class="mode">
+        <h4>Display Mode</h4>
+        Background image
+        </div>
+        <i class="fa fa-arrow-down" ></i>
+        <div class="blit">
+        <h4>Blitter</h4>
+        Moving 'Sprite' images
+        </div>
+        <i class="fa fa-arrow-down" ></i>
+        <div class="pix">
+        <h4>Serial pixels</h4>
+      	special effects</div>
+      </div>
+      </center>
 
-<p>While the Instruction set is 8-bit AVR compatible.  The port mapped hardware is not intended to match any particular microcontroller.</p>
-
-<p>The main Display output control is on port 0x40.  Writing 0x00 to that port puts the framebuffer onscreen in lowres mode.  Writing 0x01 displays hires mode.
-Current Display control Operations are  </p>
-
-<pre><code>    0x00 = Show Lowres display  (240x160)
-    0x01 = Show Highres display (480x360);
-    0x71 = blit 8 pixels per byte
-    0x72 = blit 4 pixels per byte
-    0x73 = blit 3 pixels per byte
-    0x74 = blit 2 pixels per byte
-    0x80 = Generate Mode 0   (fill framebuffer with 1.777bit per pixel data ( 16 bits per 9 pixels) )
-</code></pre>
-
-<p><em>The file IOMapping.txt lists all hardware ports.  Should there be an
-inconsistancy in the documentation,  IOMapping.txt should be taken as
-the correct form.</em></p>
-
-<p>You may write byte sized pixels (one of 256 colours in a fixed palette)
-to the framebuffer serially.
-Logically the frameBuffer is 512x392 and addressed with a 18 bit address in
-Ports 0x42,0x43,0x44  for SerialPixel address Low, Middle and High respectively.</p>
-
-<p>Writing to port 0x45 sets the pixel at the pixel adrress to the colour of the value
-written and advances the pixel address.</p>
-
-<p>Writing to port 0x46 multiplies the pixel at the pixel adrress by the colour of the value
-written and <strong>does not</strong> advance the pixel address.\</p>
-
-<p>Writing to port 0x47 adds the pixel at the pixel adrress to the colour of the value
-written and advances the pixel address.</p>
-
-<p>You cannot write directly from Program Memory to the display.  Serial output must
-be conveyed by the CPU. Display mode generators and blitting operations read from
-RAM.  Consequently, image data will usually be transferred from Program Memory
-to RAM before it can be actively used.</p>
-
-<h2>
-<a id="input" class="anchor" href="#input" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Input</h2>
-
-<p>Reading from ports 0x48 to 0x4f provides state based inputs</p>
-
-<pre><code>  input base = 0x48
-  button_state_0 = input base + 0  Left Up Right Down Enter Esc Ctrl Shift  
-  button_state_1 = input base + 1  A W D S SPACE Mouse1 Mouse2 Mouse3
-  mouseX = input base +2
-  mouseY = input base +3   mouse coordinates are in lowres pixels
-  ticker = input base +4   increments on each frame of host device.
-  timer  = input base +5   increments once per second
-</code></pre>
-
-<p>A serial input buffer is planned for keydown/keyup events but as yet no port
-is assigned.</p>
+      Alternately a program might just do a single 240x180 Blit if it can spare the memory.  At 2 bytes per pixel a
+      blit of 120 bytes wide and 180 high would fill the display but would also require a third of the RAM to hold
+      the image.
       </section>
     </div>
-    <footer>
-      <p>Project maintained by <a href="https://github.com/Lerc">Lerc</a></p>
-      <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
-    </footer>
     <!--[if !IE]><script>fixScale(document);</script><![endif]-->
-    
+
   </body>
 </html>
