@@ -142,10 +142,10 @@ using StringTools;
 */
 class AVR8
 {
-	public var ram(default,null) : Uint8Array;
+	public var ram(default, null) : Uint8Array;
 	var ramSigned : Int8Array;
 	var ramAsWords : Uint16Array;
-	public var breakPoint : Int;
+	public var breakPoint : Int = 0xffff;
 	public var log : String = ""; 
 	public var progMem(default,null) : Uint16Array;
 	public var progMemAsBytes(default,null) : Uint8Array;
