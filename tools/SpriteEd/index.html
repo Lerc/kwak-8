@@ -31,7 +31,9 @@
 
 <div class="control panel">
   <div class="output panel">
-    <button>Generate Output</button>
+	<div><textarea></textarea></div>
+    <button id="c">C Source</button> 
+    <button id="pas" >Pascal Source</button> <input class="name" type="text" placeholder="name"> 
   </div>
   <div class="dimentions panel">
     <div>
@@ -103,7 +105,8 @@ You may map multiple MicroPalette colours to the same Arne16 palette entry.
 </div>
 <div id="note"></div>
 
-    <script src='http://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.2/jquery.min.js'></script>
+    <script src='js/jquery-3.2.1.min.js'></script>
+    <script src='js/sugar.min.js'></script>
 	<script src="js/lzo1x.js"></script>
     <script src="js/index.js"></script>
 

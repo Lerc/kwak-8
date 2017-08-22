@@ -1,3 +1,5 @@
+Sugar.extend();
+
 var viewScale = 16;
 
 var sprite = {
@@ -98,19 +100,56 @@ $("#SpriteHeight").on("change",
 );
 
 
-$(".output>button").on("click",
+$(".output>button#pas").on("click",
   function (e) {
-	var outputText = generateCSource(sprite);
-	alert( outputText) ;
+	var outputText = generatePascalSource(sprite);
+	$(".output textarea").val(outputText);
+	//alert( outputText) ;
   }	
 );
-  
+$(".output>button#c").on("click",
+  function (e) {
+	var outputText = generatePascalSource(sprite);
+	$(".output textarea").val(outputText);
+	//alert( outputText) ;
+  }	
+);
+
+function getIndexPalette() {
+	return palette.map(rgb=>Math.max(arnePalette.indexOf(rgb),0));	
+}
+
 function generateCSource(sprite) {
-  var result = "const uint8_t spriteName_Palette[] PROGMEM = {0x00,0x21,0x23,0x45,0x67,0x89,0xab,0xcd}; \n";
+  let paletteData = getIndexPalette().inGroupsOf(2).map(([a,b])=>"0x"+((a<<4)+b).toString(16) ); 
+  if (sprite.pixelsPerByte == 4) paletteData = paletteData.slice(0,2);
+  var result = `const uint8_t spriteName_Palette[] PROGMEM = {${paletteData}}; \n`;
   result+= "const uint8_t spriteName_data[] PROGMEM = { " + [].slice.call(sprite.data) + " };\n";
   
   return result;
 }  
+
+function generatePascalSource(sprite) {
+	let name = $('.output .name').val();
+
+	let dataArray = [].slice.call(sprite.data);
+	let dataLine = `${name}_Data : array [0..${dataArray.length-1}] of byte = ( ${dataArray} ); `;
+	let paletteData = getIndexPalette().inGroupsOf(2).map(([a,b])=>"$"+((a<<4)+b).toString(16) ); 
+	if (sprite.pixelsPerByte == 4) paletteData = paletteData.slice(0,2);
+	let paletteLine = `${name}_Palette : array [0..${paletteData.length-1}] of byte = ( ${paletteData} );`;
+	
+	let recordLine = ` ${name}_Sprite : tSpriteData = ( `
+		+	`width_in_bytes: ${sprite.widthInBytes} ;`
+		+	`height: ${sprite.height};`
+		+	`HandleX : 0;`
+		+	`HandleY : 0;`
+		+	`drawMode: BLIT_${sprite.pixelsPerByte}_PIXELS_PER_BYTE;`
+		+	`palette: @${name}_Palette; `
+		+	`image:@${name}_Data);`
+		
+	return dataLine +"\n" + paletteLine +"\n" + recordLine;
+	
+	
+}
 function drawExampleImages(image)  {
   var w=image.width;
   var h=image.height;
