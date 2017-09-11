@@ -203,14 +203,20 @@ class AVR8
 		progMemAsBytes = new Uint8Array(progMem.buffer);
 	}
 	
-	public function clear() {
+	public function clearRam() {
 		for (byte in ram) {
 			byte = 0;
 		}
+	}
+	
+	public function clearProgMem() {
 		for (word in progMem) {
 			word = 0;
 		}
-		
+	}
+
+	public function reset() {
+		clearRam();
 		for (i in 0...255) {
 			memStore(i, 0);  //clear IO ports
 		}
@@ -218,6 +224,12 @@ class AVR8
 		interruptDepth = 0;
 		clockCycleCount = 0;
 	}
+	
+	public function clear() {
+		clearProgMem();
+		reset();
+	}
+	
 	public function writeProgMem(startAddress : Int32, bytes : Array<Int>) {
 		 var walk = 0;
 		 for (b in bytes) {
@@ -1138,14 +1150,11 @@ class AVR8
 							  var d = (instruction & 0x00f0) >> 4;
 							  var r = (instruction & 0x000f);
 							  result='MOVW r${d*2},r${r*2}';							  
-							  //result='MOVW r${d*2}:r${d*2+1},r${r*2}:r${r*2+1}';							  
 							}
 							case 0x0200: { //muls
 							  var d = 16+(instruction & 0x00f0) >> 4;
 							  var r = 16+(instruction & 0x000f);
 							  result='MULS r$d,r$r';
-
-							  clocks = 2;
 							}
 							case 0x0300: { //mulsu, fmul, fmuls, fmulsu
 								result =("(F)MUL(S)(U)");
@@ -1161,15 +1170,12 @@ class AVR8
 						var d = (instruction & 0x01f0) >> 4;
 						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
 						result ='SBC r$d,r$r';
-
 					}
 					case 0x0c00: { //add
 						var d = (instruction & 0x01f0) >> 4;
 						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
 						result = 'ADD r$d,r$r   ${ram[d]} + ${ram[r]} ';
-
 					}
-				
 				}
 			}
 			case 0x1000: { //cpse cp sub adc 
@@ -1205,7 +1211,6 @@ class AVR8
 					}
 					case 0x0400: { //eor
 						result='EOR r$d,r$r';
-						
 					}
 					case 0x0800: { //or
 						result='OR r$d,r$r';
@@ -1214,7 +1219,6 @@ class AVR8
 						result='MOV r$d,r$r';
 					}
 				}
-				
 			}
 			case 0x3000: { //cpi 
 				var k = ((instruction & 0x0f00) >> 4) | (instruction & 0x000f);
@@ -1260,7 +1264,6 @@ class AVR8
 						result='LDD r$d,Z+$q';
 					}
 				}
-				clocks = 2;
 			}
 			case 0xb000: { //in out
 				var a = (instruction & 0x000f) | ( (instruction & 0x0600) >> 5);
@@ -1275,13 +1278,11 @@ class AVR8
 				var k = (instruction & 0x0fff);
 				if (k > 2048) k -= 4096;
 				result='RJMP ${hex4((memLocation+k+1)*2)}';
-				clocks = 2;
 			}
 			case 0xd000: { //rcall
 				var k = (instruction & 0x0fff);
 				if (k > 2048) k -= 4096;
 				result='RCALL ${hex4((memLocation+k+1)*2)}';				
-				clocks = 3;				
 			}
 			case 0xe000: { //ldi
 				var k = ((instruction & 0x0f00) >> 4) | (instruction & 0x000f);
@@ -1318,7 +1319,6 @@ class AVR8
 						result = (skipOnClear?'SBRC':'SBRS') + 'r$d,{instruction & 0x0007}';
 					}
 				}
-				
 			}
 			case 0x9000: {
 				switch (instruction & 0xfe00) {
@@ -1328,56 +1328,43 @@ class AVR8
 							case 0x9000: {
 								var k = progMem[memLocation + 1];
 								result = 'LDS r$d,$k';
-								clocks = 2;
 							}								
 							case 0x9001: {								
 								result = 'LD r$d,Z+';
-								clocks = 2;
 							}
 							case 0x9002: {								
 								result = 'LD r$d,-Z';
-								clocks = 2;
 							}
 							case 0x9004: {
 								result = 'LPM r$d,Z';
-								clocks = 3;
 							}
 							case 0x9005: {
 								result = 'LPM r$d,Z+';
-								clocks = 3;
 							}
 							case 0x9006: {
 								result = 'ELPM r$d,Z';
-								clocks = 3;
 							}								
 							case 0x9007: {
 								result = 'ELPM r$d,Z+';
-								clocks = 3;
 							}
 							case 0x9009: {								
 								result = 'LD r$d,Y+';
-								clocks = 2;
 							}
 							case 0x900A: {
 								result = 'LD r$d,-Y';
-								clocks = 2;
 							}
 							case 0x900C: {
 								result = 'LD r$d,X';
-								clocks = 2;
 							}
 							case 0x900D: {
 								result = 'LD r$d,X+';
-								clocks = 2;
 							}
 							case 0x900E: {
 								result = 'LD r$d,-X';
-								clocks = 2;
 							}
 							case 0x900F: {
 								//POP
 								result = 'POP r$d';
-								clocks = 2;
 							}
 						}
 					}
@@ -1387,42 +1374,32 @@ class AVR8
 							case 0x9200: {
 								var k = progMem[memLocation + 1];
 								result = 'STS ${hex4(k)},r$d';
-								clocks = 2;
 							}								
 							case 0x9201: {								
 								result = 'ST Z+,r$d';
-								clocks = 2;
 							}
 							case 0x9202: {								
 								result = 'ST -Z,r$d';
-								clocks = 2;
 							}
 							case 0x9209: {								
 								result = 'ST Y+,r$d';
-								clocks = 2;
 							}
 							case 0x920A: {
 								result = 'ST -Y,r$d';
-								clocks = 2;
 							}
 							case 0x920C: {
 								result = 'ST X,r$d';
-								clocks = 2;
 							}
 							case 0x920D: {
 								result = 'ST X+,r$d';
-								clocks = 2;
 							}
 							case 0x920E: {
 								result = 'ST -X,r$d';
-								clocks = 2;
 							}
 							case 0x920F: {
 								result = 'PUSH r$d';
-								clocks = 2;
 							}
 						}
-						
 					}
 					case 0x9400: { 	// com neg swap inc asr lsr ror dec jmp call bset 
 									// ijmp eijmp bclr ret icall reti eicall sleep break 
@@ -1449,24 +1426,11 @@ class AVR8
 							}
 							case 0x9405: { //asr
 								var d = (instruction & 0x01f0) >> 4;
-								var value = ram[d];
-								SREG &= ~(SFLAG | VFLAG | NFLAG | ZFLAG | CFLAG);
-								var carry = (value & 1);
-								SREG |= carry;
-								var topBit = (value & 0x80) ;
-								var newValue = (value >> 1) | topBit;
-								ram[d] = newValue;
-								if (newValue == 0) SREG |= ZFLAG;
-								var n = topBit != 0;
-								var v = xor(n, carry != 0);
-								var s = xor(n, v);
-								if (n) SREG |= NFLAG;									
-								if (v) SREG != VFLAG;
-								if (s) SREG != SFLAG;
+								result = "ASR r$d";
 							}
 							case 0x9406: { //lsr
 								var d = (instruction & 0x01f0) >> 4;
-								result = "ASR r$d";
+								result = "LSR r$d";
 							}
 							case 0x9407: { //ror								
 								var d = (instruction & 0x01f0) >> 4;
