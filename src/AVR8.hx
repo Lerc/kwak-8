@@ -293,15 +293,15 @@ class AVR8
 	function sub_with_carry(d : Int, r:Int, carry :Int = 0) : Int {
 		var result = d - r - carry;
 		result &= 0xff;
-		var borrows = (~d & r) | (r & result) | (~d & result);
+		var carries = (~d & r) | (r & result) | (~d & result);
 		var overflows = (d & ~r & ~result) | (~d & r & result); 
-		var carries = (( (~d & r) | ( r & result) | (result & ~d) ) & 0x80) ==0x80; 
+		//var carries = (( (~d & r) | ( r & result) | (result & ~d) ) & 0x80) ==0x80; 
 		var oldZ = (SREG & ZFLAG);
 		SREG &= ~(HFLAG | SFLAG | VFLAG  | NFLAG | ZFLAG | CFLAG);
 		var n = result & 0x80;
 		var v = overflows & 0x80; 
-		if ((borrows & 0x08) != 0) SREG |= HFLAG; 
-		if (carries) SREG |= CFLAG;
+		if ((carries & 0x08) != 0) SREG |= HFLAG; 
+		if ((carries & 0x80) !=0) SREG |= CFLAG;
 		//if ((carries & 0x80) !=0) SREG |= CFLAG;
 		if (n !=0) SREG |= NFLAG; 
 		if (v !=0) SREG |= VFLAG;
@@ -316,14 +316,15 @@ class AVR8
 	function sub(d : Int, r:Int) : Int {
 		var result = d - r;
 		result &= 0xff;
-		var borrows = (~d & r) | (r & result) | (~d & result);
+		//var borrows = (~d & r) | (r & result) | (~d & result);
+		var carries = (~d & r) | (r & result) | (result & ~d); 
 		var overflows = (d & ~r & ~result) | (~d & r & result); 
-		var carries = (~d & r) | ( r & result) | (result & ~d); 
 		SREG &= ~(HFLAG | SFLAG | VFLAG  | NFLAG | ZFLAG | CFLAG);
 		var n = result & 0x80;
 		var v = overflows & 0x80; 
-		if ((borrows & 0x08) != 0) SREG |= HFLAG; 
-		if ((r &0xff) > (d&0xff)) SREG |= CFLAG;
+		if ((carries & 0x08) != 0) SREG |= HFLAG; 
+		if ((carries & 0x80) != 0) SREG |= CFLAG; 
+		//if ((r &0xff) > (d&0xff)) SREG |= CFLAG;
 		if (n !=0) SREG |= NFLAG; 
 		if (v !=0) SREG |= VFLAG;
 		if ((n ^ v) != 0) SREG |= SFLAG; 
