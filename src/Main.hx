@@ -1,6 +1,7 @@
 package ;
 
 import haxe.Timer;
+import js.Browser;
 
 
 /**
@@ -12,8 +13,11 @@ class Main
 {
 	static function main() 
 	{
-		var emulator : EmulatortHost;
-		emulator  = new EmulatortHost();
+		Browser.document.addEventListener("DOMContentLoaded", function(e) {
+			var emulator : EmulatortHost;
+			emulator  = new EmulatortHost();
+		});
 	}
+	
 	
 }
