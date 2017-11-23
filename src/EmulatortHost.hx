@@ -1,5 +1,7 @@
 package ;
 import haxe.Timer;
+import haxe.io.Bytes;
+import haxe.zip.Compress;
 import js.Browser;
 import js.html.ButtonElement;
 import js.html.CanvasElement;
@@ -19,9 +21,11 @@ import js.html.OptionElement;
 import js.html.Storage;
 import js.html.Uint8ClampedArray;
 import js.html.Uint32Array;
+import js.html.Float32Array;
 
 
 using StringTools;
+
 
 /**
  * ...
@@ -53,6 +57,7 @@ class EmulatortHost
 	var logDiv:DivElement;
 	var logText: String = "";
 	var displayGenerator : Display;
+	var audioGenerator : Audio;
 	var clocksPerDisplayUpdate : Int = 0;
 	var runButton : ButtonElement;
 	var stepButton : ButtonElement;
@@ -96,19 +101,28 @@ class EmulatortHost
 		combo.add(resourceCombo("pixelTest", "Pixel rendering test"));
 		combo.add(resourceCombo("Lisp", "uLisp"));
 		
-		Browser.document.body.appendChild(combo);
+		var containerElement = Browser.document.querySelector(".emulator.host");
+		containerElement.appendChild(combo);
 
 		combo.onchange = function (e:Event) {
 			loadHexFile(combo.value);
+			combo.blur();
 		}
 		
+		var playerDiv =  Browser.document.createDivElement();
+		containerElement.appendChild(playerDiv);
 		displayCanvas = Browser.document.createCanvasElement();
 		displayCanvas.addEventListener('mousemove', function(e:MouseEvent){mouseX = e.offsetX; mouseY = e.offsetY; });
 		displayCanvas.addEventListener('mousedown', function(e:MouseEvent){ mouseButtonState[e.button] = true;});
 		displayCanvas.addEventListener('mouseup', function(e:MouseEvent){ mouseButtonState[e.button] = false;});
 		displayCanvas.addEventListener('contextmenu', function(e:MouseEvent){ e.preventDefault(); });
 		
-		Browser.document.body.appendChild(displayCanvas);
+		playerDiv.appendChild(displayCanvas);
+		
+		var controlPanel = Browser.document.createDivElement();
+		controlPanel.className = "control panel";
+		playerDiv.appendChild(controlPanel);
+		
 		display = displayCanvas.getContext2d();
 	
 		displayCanvas.width = 480;
@@ -119,7 +133,8 @@ class EmulatortHost
 	
 		
 		infoBox = Browser.document.createDivElement();
-		Browser.document.body.appendChild(infoBox);
+		infoBox.className = "diagnostics";
+		containerElement.appendChild(infoBox);
 		
 		registerBox = Browser.document.createDivElement();
 		registerBox.className = "registerbox";
@@ -147,13 +162,17 @@ class EmulatortHost
 		runButton = Browser.document.createButtonElement();
 		runButton.textContent = "Run";
 		runButton.className = "run button";
-		registerBox.appendChild(runButton);
+		controlPanel.appendChild(runButton);
 
 		stepButton = Browser.document.createButtonElement();
 		stepButton.textContent = "Step";
 		stepButton.className = "step button";
-		registerBox.appendChild(stepButton);
+		controlPanel.appendChild(stepButton);
 
+		var resetButton = Browser.document.createButtonElement();
+		resetButton.textContent = "Reset";
+		resetButton.className = "reset button";
+		controlPanel.appendChild(resetButton);
 		
 		breakpointInput = Browser.document.createInputElement();
 		breakpointInput.placeholder = "breakpoint";
@@ -168,14 +187,14 @@ class EmulatortHost
 			}
 		});
 		
-		logDiv = makeDiv(Browser.document.body, "log");
+		logDiv = makeDiv(containerElement, "log");
 		logDiv.textContent = "Log\nStarted...\n ";
 		avr = new AVR8();
 		updateRegisterView();
 
-		runButton.onclick = function() { halted = !halted;  };
+		runButton.onclick = function(e) { halted = !halted; e.preventDefault(); };
 		stepButton.onclick = function() { if (halted) avr.exec(); setDisassamblyView(avr.PC); updateRegisterView(); };
-
+		resetButton.onclick = function (){ reset(); }; 
 		loadHexFile(testProgram);
 		
 		displayCanvas.addEventListener("drop", handleFileDrop);
@@ -191,8 +210,9 @@ class EmulatortHost
 		var lastTime = avr.clockCycleCount;
 		
 		function floatText(f:Float) {
-			var b = ""+Math.round(f * 1000.0);
-			return b.substr(0, 1) + "." + b.substr(1);
+			var a = Math.round(f * 1000.0);
+			var b = "" + a / 1000;
+			return b.substr(0, 5);
 		}
 		halfsecondTimer.run = function() { 
 			var clocksPassed = avr.clockCycleCount - lastTime;
@@ -235,8 +255,14 @@ class EmulatortHost
 			request.onData = function(data) { loadHexFile(data); halted = false; };
 			request.request();
 		}
-		
+
+		audioGenerator=new Audio();
+		audioGenerator.start(); 
 		Browser.window.requestAnimationFrame(handleAnimationFrame);
+		
+		var win : Dynamic = Browser.window;
+		win.emulatorHost = this;
+		
 	}
   
 	function getQueryVariable(variable)   {
@@ -270,6 +296,8 @@ class EmulatortHost
 				setDisassamblyView(avr.PC);			
 				updateRegisterView();
 				flushLog();
+			} else {
+				displayCanvas.focus();
 			}
 		}
 		return newValue;
@@ -280,7 +308,7 @@ class EmulatortHost
 		var elapsed = time-lastFrameTimeStamp;
 		lastFrameTimeStamp = time;
 		var clockCyclesToEmulate = Math.floor(8000 * elapsed);
-		if (clockCyclesToEmulate > 200000) clockCyclesToEmulate = 200000;
+		if (clockCyclesToEmulate > 400000) clockCyclesToEmulate = 400000;
 
 		avr.breakPoint = untyped Browser.window.breakPoint / 2;
 
@@ -291,6 +319,7 @@ class EmulatortHost
 			
 		}
 		Browser.window.requestAnimationFrame(handleAnimationFrame);
+		
 	}
 	
 	function installPortIOFunctions() {
@@ -536,14 +565,16 @@ class EmulatortHost
 	}
 
 	function reset() {
-		avr.clear();
+		avr.reset();
+		magicPasteBufferindex = 0;
 		outputDiv.textContent = "[reset]";
 		trace("[reset]");
 		logText = "Start of log:";		
+		compress();
 	}
 	
 	function loadHexFile(text : String) {
-		reset();
+		avr.clearProgMem();
 		var hexFile = new HexFile(text);
 		var totalData = 0;
 		for (mem in hexFile.data) {
@@ -552,7 +583,8 @@ class EmulatortHost
 		  //trace('added ${mem.data.length} bytes at ${mem.address}');
 		}
 		trace('loaded ${totalData} bytes from hex file');
-
+		reset();
+		halted = false;
 	}
 	function handleFileDrop(e : DragEvent) {
 		e.stopPropagation();
@@ -567,4 +599,9 @@ class EmulatortHost
 		}
 	}
 	
+	public function compress() {
+		
+		//var zip = Compress.run(avr.progMem.view.buffer, 7);
+		//trace(zip);
+	}
 }
