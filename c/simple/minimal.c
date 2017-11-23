@@ -1,8 +1,12 @@
 
-//#include "ravr.c"
 #include <inttypes.h>
+
+// avr/io.h   provides the _SFR_IO macros for Port access
 #include <avr/io.h>
 
+
+//Normally these defines would be in an include
+//but this example is meant to be self contained.
 #define PORT_DISPLAY_CONTROL _SFR_IO8(0x20)
 #define PORT_DISPLAY_SHIFT  _SFR_IO8(0x21)
 #define PORT_SERIAL_PIXEL_ADDRESS  _SFR_IO16(0x22)
@@ -23,8 +27,11 @@
 
 #define PORT_MOUSEX  _SFR_IO8(0x2A)
 #define PORT_MOUSEY  _SFR_IO8(0x2B)
+#define PORT_TICKER  _SFR_IO8(0x2C)
 
+//sets the serial pixel write position.
 void setPixelCursor(uint16_t x,uint16_t y) {
+  
   uint32_t addr = ((uint32_t)(y)) * 512 + x ;
 
   PORT_SERIAL_PIXEL_ADDRESS_H = (addr >> 16);
@@ -32,9 +39,11 @@ void setPixelCursor(uint16_t x,uint16_t y) {
   PORT_SERIAL_PIXEL_ADDRESS_L =  (addr >> 0);
 }
 
-void setImage(uint16_t x,uint16_t y, uint8_t w, uint8_t h,  uint8_t* data, uint8_t bytesPerRow) {
-
-
+void waitForNextFrame() {
+  uint8_t now = PORT_TICKER;
+  for (;;) {
+    if (PORT_TICKER != now) break;
+  }
 }
 
 main (void)
@@ -48,26 +57,43 @@ main (void)
   uint16_t y = 200;
 
     for (;;)  {
-    	*walk++=data++;
-    	if (walk > (uint16_t*)(0x5000)) {
+      //incrementally write some randomish data to the display area
+      *walk=*walk &0xaa0f;
+    	if (++walk > (uint16_t*)(0x6580)) {
     		walk=(uint16_t*)(0x4000);
+      }
+      *walk=(data++ * 1997)&0xffff;
+      
+      // set up registers for Mode0 
+      PORT_MODE0_PIXEL_DISPLAY_START=0x4001;
+      PORT_MODE0_COLOR_DISPLAY_START=0x4000;
+      PORT_MODE0_PIXEL_INCREMENT=0x02;
+      PORT_MODE0_COLOR_INCREMENT=0x02;
+      PORT_MODE0_PIXEL_LINE_INCREMENT=20;// (20 = 240/3*2/8 ) 
+      PORT_MODE0_COLOR_LINE_INCREMENT=20;
 
-        PORT_DISPLAY_CONTROL=0x80;  //render mode0 to frameBuffer
+      
+      PORT_DISPLAY_CONTROL=0x80;  //render mode0 to frameBuffer
 
-        setPixelCursor(x,y);
-        PORT_SERIAL_PIXEL_SET = 15;
-        PORT_SERIAL_PIXEL_SET = 15;
-        PORT_SERIAL_PIXEL_SET = 15;
-        setPixelCursor(x,y+1);
-        PORT_SERIAL_PIXEL_SET = 15;
-        PORT_SERIAL_PIXEL_SET = 15;
-        PORT_SERIAL_PIXEL_SET = 15;
 
-        x=PORT_MOUSEX;
-        y=PORT_MOUSEY;
+      x=PORT_MOUSEX;
+      y=PORT_MOUSEY;
 
-        PORT_DISPLAY_CONTROL=0x00;  //put frame onscreen in lowres
-    	}
+      // three pixels across and one above, one below, makes a tiny + 
+      setPixelCursor(x-1,y);
+      PORT_SERIAL_PIXEL_SET = 15;
+      PORT_SERIAL_PIXEL_SET = 15;
+      PORT_SERIAL_PIXEL_SET = 15;
+      setPixelCursor(x,y+1);
+      PORT_SERIAL_PIXEL_SET = 15;
+      setPixelCursor(x,y-1);
+      PORT_SERIAL_PIXEL_SET = 15;
+      
+
+
+      PORT_DISPLAY_CONTROL=0x00;  //put frame onscreen in lowres
+
+      waitForNextFrame();    	
     }
     return (0);
 }
