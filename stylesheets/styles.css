@@ -349,6 +349,33 @@ footer p + p {
   }
 }
 
+.hidden {
+  display:none;
+}
+
+nav li {  color: white;
+  font-weight: bold;
+  text-shadow: 0px 0px 1px black;
+}
+nav li {
+  display: inline-block;
+  padding-block-start: 0px;
+  padding-left: 15px;
+  padding-right:15px;
+}
+
+nav li:hover {
+  background-color : rgba(255, 139, 93, 0.616);
+}
+
+nav ul {
+  list-style: none;
+}
+
+nav {
+  background-color : #8BBEF3;
+  background: linear-gradient(0deg, #134163, rgb(45, 74, 138) 14px, #98c1f0);
+}
 .specs {
   width: 70%;
   border: 1px solid black;
@@ -360,3 +387,12 @@ footer p + p {
 .specs>table {
   width:90%;
 }
+
+.screenshot {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: pixelated;
+}
+
+.x2 {
+  transform: scale(2);
+}  

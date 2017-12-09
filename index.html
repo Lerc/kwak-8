@@ -9,6 +9,14 @@
     <link rel="stylesheet" href="stylesheets/github-dark.css">
     <link rel="stylesheet" href="stylesheets/font-awesome.min.css">
     <script src="javascripts/scale.fix.js"></script>
+    <script
+    src="https://code.jquery.com/jquery-3.2.1.min.js"
+    integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+    crossorigin="anonymous"></script>
+
+    <script src="javascripts/index.js"></script>
+    <script src="javascripts/avr.js"></script>
+    <link rel="stylesheet" href="stylesheets/emulator.css">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 
     <style>
@@ -56,16 +64,27 @@
           <li><a href="https://github.com/Lerc/kwak-8">View On <strong>GitHub</strong></a></li>
         </ul>
       </header>
+      <nav class="menu">
+        <ul>
+          <li data-page="emulator" >The Emulator</li>
+          <li data-page="about" >About</li>
+          <li data-page="architecture" >Architecture</li>          
+          <li data-page="development" >How to build programs</li>          
+          <li data-page="examples">Example Programs</li>
+        </ul>
+      </nav>
 
+      <div class="page about hidden" >
       <section>
       The KWAK-8 never existed as a physical computer.   Like <a href="http://www.pico-8.com/">Lexaloffle's excellent PICO-8</a>.
       The KWAK-8 is an emulated system for enthusiasts of constrained environments.<p/>
 
 
-      When compared to the PICO-8 The KWAK-8 programming interface is much lower level.  The KWAK-8 uses an
+      When compared to the PICO-8 The KWAK-8 programming interface more closely resembles targeting a hardware device.  This means
+      the interface is defined at a low-level .  The KWAK-8 uses a 8-bit virtual CPU with an
       instruction set compatible with the Arduino, and all interaction with the outside world is done
       through IO/Ports.   Unlike emulators for Actual computers in the past, The KWAK-8 is much less
-      dependent on precise timing and can thus be emulated much more efficiently.<p>
+      dependent on precise timing and can thus be emulated much more efficiently.<p> 
       <center>
       <div class="specs">
       <table>
@@ -73,9 +92,9 @@
       <tr><td>RAM</td><td>64k</td></tr>
       <tr><td>ROM</td><td>128k</td></tr>
       <tr><td>Display</td><td>240x180<br><small>(hires mode 480x360)</small></td></tr>
-      <tr><td>Colours</td><td>16<sup>†</sup>  <img src="images/Arne16.png" alt="Arne's 16 coolour palette"></td></tr>
+      <tr><td>Colours</td><td>16<sup>†</sup>  <img src="images/Arne16.png" alt="Arne's 16 coolour palette" style="position:relative; left:10px; top:2px"></td></tr>
       <tr><td>Speed</td><td>8Mhz<br><small>(probably)</small></td></tr>
-      <tr><td>Audio</td><td>None yet, planned</td></tr>
+      <tr><td>Audio</td><td>8 synth voices</td></tr>
       <tr><td>Storage</td><td>None yet,planned</td></tr>
       </table>
       <small>†256 colours available with CPU intensive PixelWriting.</small>
@@ -84,7 +103,7 @@
       </center>
       To give you an idea of the reolution. Here's a mockup at 240x180 using the 16 colour palette.
       <center>
-      <img src="images/QuiteFresh_Arne16_240x180.png"> by <a href="http://quitefreshgames.tumblr.com/">Stefan Åhlin</a>
+        <img class="screenshot" src="images/QuiteFresh_Arne16_240x180.png"> - <img class="screenshot" height="360" src="images/QuiteFresh_Arne16_240x180.png"><br> game mockup image by <a href="http://quitefreshgames.tumblr.com/">Stefan Åhlin</a>
       </center>
 
       Making the instruction set compatable with 8 the 8-bit avr means, that many tools designed for the Arduino ecosystem can be
@@ -123,7 +142,11 @@
 
       In compensation, what is provided is an emulated hardware mechanism more appropriate to
       an emulator that is backed by a frame-buffer.
+      </section>
+    </div>
 
+    <div class="page architecture hidden">
+    <section>
       There are 3 basic forms of writing to the display device.
 
       <ul>
@@ -159,10 +182,47 @@
       </div>
       </center>
 
-      Alternately a program might just do a single 240x180 Blit if it can spare the memory.  At 2 bytes per pixel a
-      blit of 120 bytes wide and 180 high would fill the display but would also require a third of the RAM to hold
-      the image.
+      Alternately a program might host a framebuffer in RAM and do a single 240x180 Blit to place it onscreen. At 2 bytes per pixel a
+      blit of 120 bytes wide and 180 high would fill the display but would also require a third of the RAM to hold the image.
       </section>
+    </div>
+    
+    <div class="page development hidden">
+      The Kwak-8 emulator takes standard .hex files. 
+
+      The Kwak-8 instruction set is compatable with AVR based Arduinos.  This means many 
+      tools that can be used for Arduino development may also be used to develop for the Kwak-8.<p>
+
+      C development is well supported by avr-gcc.  A good backgrounder can be fount at the <a href="http://www.tldp.org/HOWTO/Avr-Microcontrollers-in-Linux-Howto/x207.html">AVR Microcontrollers in Linux HOWTO</a>.
+
+      There is preliminary support for AVR in development builds of <a href="https://www.freepascal.org/">Free Pascal</a>. patches to add a Kwak-8 target and 
+      library functions are in the works.<p>
+
+      In general anything that builds for the AVR  has the potential to be used.  Things should work as
+      long as the tool does not assume particular hardware traits of Microcontrollers 
+      such as timers and interrupts.<p>
+      
+      The truly keen will want to develop in assember.  AVR assembly resources can be found at
+      <a href="http://www.avr-asm-tutorial.net/avr_en/index.html">http://www.avr-asm-tutorial.net/avr_en/index.html</a><p>
+
+      The only thing you need to remember is that the Microcontroller Port numbers do not apply.  
+      The Kwak-8 port numbers are specified in
+      <script src="https://gist-it.appspot.com/https://github.com/Lerc/kwak-8/blob/master/IOMapping.txt"></script>            
+
+    </div>
+    <div class="page examples hidden">
+      Put Some Examples of programs here
+      <script src="https://gist-it.appspot.com/https://github.com/Lerc/kwak-8/blob/master/c/simple/minimal.c"></script>            
+    </div>
+    <div class="page emulator">
+      The Emulator
+     
+      <div class="emulator host">
+
+      </div>
+    </div>
+
+
     </div>
     <!--[if !IE]><script>fixScale(document);</script><![endif]-->
 
