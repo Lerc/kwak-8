@@ -454,7 +454,6 @@ class AVR8
 						var d = (instruction & 0x01f0) >> 4;
 						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
 						//traceInstruction('CP r$d,r$r');
-						SREG != ZFLAG;
 						sub(ram[d], ram[r]);
 					}
 					case 0x0800: { //sub
@@ -1135,7 +1134,6 @@ class AVR8
 		function hex2(value) {	return "0x" + StringTools.hex(value, 2);	}
 		function hex4(value) {	return "0x" + StringTools.hex(value, 4);	}
 		
-		var clocks = 1; //probably one clock
 		var instruction = progMem[memLocation];
 		var result : String = 'Unknown Instruction ${hex4(instruction)}';
 		
@@ -1292,7 +1290,6 @@ class AVR8
 			}
 			case 0xf000: { // bld bst sbrc sbrs  +conditional branches 
 				var conditionCode = (instruction & 0x0007);
-				var bit = 1 << conditionCode;
 				var clearCodes  = ['CC', 'NE', 'PL', 'VC', 'GE', 'HC', 'TC', 'ID'];
 				var setCodes = ['CS', 'EQ', 'MI', 'VS', 'LT', 'HS', 'TS', 'IE'];
 
@@ -1315,7 +1312,6 @@ class AVR8
 					}  else {
 						//sbrc sbrs
 						var d = (instruction & 0x01f0) >> 4;
-						var bitCheck = ram[d] & bit;
 						var skipOnClear = ((instruction & 0x0200) == 0);
 						result = (skipOnClear?'SBRC':'SBRS') + 'r$d,{instruction & 0x0007}';
 					}
@@ -1408,42 +1404,42 @@ class AVR8
 						switch (instruction & 0xfe0f) {
 							case 0x9400: { //com 
 								var d = (instruction & 0x01f0) >> 4;
-								result = "COM r$d";
+								result = 'COM r$d';
 							}
 							case 0x9401: { //neg 
 								var d = (instruction & 0x01f0) >> 4;
-								result = "NEG r$d";
+								result = 'NEG r$d';
 							}
 							case 0x9402: { //swap
 								var d = (instruction & 0x01f0) >> 4;
-								result = "SWAP r$d";
+								result = 'SWAP r$d';
 							}
 							case 0x9403: { //inc
 								var d = (instruction & 0x01f0) >> 4;
-								result = "INC r$d";
+								result = 'INC r$d';
 							}
 							case 0x9404: { // no instruction for this !?!
-								result = "Not an Instruction?";
+								result = 'Not an Instruction?';
 							}
 							case 0x9405: { //asr
 								var d = (instruction & 0x01f0) >> 4;
-								result = "ASR r$d";
+								result = 'ASR r$d';
 							}
 							case 0x9406: { //lsr
 								var d = (instruction & 0x01f0) >> 4;
-								result = "LSR r$d";
+								result = 'LSR r$d';
 							}
 							case 0x9407: { //ror								
 								var d = (instruction & 0x01f0) >> 4;
-								result = "ROR r$d";
+								result = 'ROR r$d';
 							}
 							case 0x9408: { // bset bclr ret reti sleep break  wdr   lpm R0,Z    elpm R0   spm
 								if ( (instruction & 0xff0f) == 0x9408 ) { // bset bclr
 									var bit = ( (instruction & 0x0030) >> 4);
 									if ( (instruction & 0x0040 == 0) ) {
-										result = "BSET $bit";
+										result = 'BSET $bit';
 									} else {
-										result = "BCLR $bit";
+										result = 'BCLR $bit';
 									}								
 								} else switch (instruction) {
 									case 0x9508: { // ret

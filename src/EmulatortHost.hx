@@ -72,7 +72,7 @@ class EmulatortHost
 	//var testProgram = haxe.Resource.getString("minimalc"); 
 	//var testProgram = haxe.Resource.getString("hello");  
 
-	var testProgram = haxe.Resource.getString("blitTest");   
+	var testProgram = haxe.Resource.getString("audioTest");   
 	var frameBuffer : ImageData; 
 	 
 	var scaleBuffer : ImageData;
@@ -91,11 +91,15 @@ class EmulatortHost
 	var magicPasteBuffer:String = "(defun mid (a b) (if (and (listp a) (listp b)) (mapcar mid a b) (/ (+ a b) 2)))"
 		+ "(defun tri (a b c d) (if (> d 1) (progn (tri (mid a b) (mid b c) (mid a b) (- d 1)) (tri a (mid a b) (mid a c) (- d 1) ) (tri b (mid b a) (mid b c) (- d 1) ) (tri c (mid c a) (mid c b) (- d 1)) ) ) (progn (lin a b) (lin b c) (lin c a)))" 
 		+ "(defun lin (a b) (moveto a) (lineto b) ) (tri '(100 70) '(50 180) '(150 180) 4)";
+
+	var selectedVoice : Voice;
+
 	public function new() 
 	{
 		untyped Browser.window.breakPoint = 0xffff00;
 		var combo = Browser.document.createSelectElement();
 
+		combo.add(resourceCombo("audioTest", "Audio test"));
 		combo.add(resourceCombo("blitTest", "Blit Mode test"));
 		combo.add(resourceCombo("inputTest", "Input Test"));
 		combo.add(resourceCombo("pixelTest", "Pixel rendering test"));
@@ -257,6 +261,7 @@ class EmulatortHost
 		}
 
 		audioGenerator=new Audio();
+		selectedVoice=audioGenerator.voices[0];
 		audioGenerator.start(); 
 		Browser.window.requestAnimationFrame(handleAnimationFrame);
 		
@@ -417,6 +422,21 @@ class EmulatortHost
 		inPort[inputsPort + 0x04] = function () { return tickCounter; }
 		inPort[inputsPort + 0x05] = function () { return timeCounter >> 1; }
 		inPort[inputsPort + 0x06] = function () { if (keyBuffer.isEmpty()) return 0 else return keyBuffer.pop();} 
+
+		var audioPort = 0x80;
+		var voicePort= audioPort+8;
+
+		outPort[audioPort + 0x00]  = function (value) {selectedVoice = audioGenerator.voices[value & 0x07]; }
+
+		outPort[voicePort + 0x00] = function (value)  {selectedVoice.frequency = (selectedVoice.frequency&0xff00) | value; }
+		outPort[voicePort + 0x01] = function (value)  {selectedVoice.frequency = (selectedVoice.frequency&0x00ff) | (value << 8); }
+		outPort[voicePort + 0x02] = function (value)  {selectedVoice.volume=value; }
+		outPort[voicePort + 0x03] = function (value)  {selectedVoice.waveBase = value&0x0f; selectedVoice.waveShift=value>>4;}
+		outPort[voicePort + 0x04] = function (value)  {selectedVoice.bendDuration = value & 0x1f; selectedVoice.bendPhase=value>>5; }
+		outPort[voicePort + 0x05] = function (value)  {selectedVoice.bendAmplitude=value; }
+		outPort[voicePort + 0x06] = function (value)  {selectedVoice.noise= value & 0x0f; selectedVoice.hold=value>>4; }
+		outPort[voicePort + 0x07] = function (value)  {selectedVoice.attack= value & 0x0f; selectedVoice.release=value>>4; }
+		
 	}
 	
 	function read8Buttons(startingAt) {
