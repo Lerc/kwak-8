@@ -24,7 +24,7 @@
     <option noInlineOnDebug="False" />
     <option mainClass="Main" />
     <option enabledebug="False" />
-    <option additional="-resource c/simple/minimal.hex@minimalc&#xA;-resource c/hello/hello.hex@hello&#xA;-resource c/BlitTest/BlitTest.hex@blitTest&#xA;-resource c/InputTest/InputTest.hex@inputTest&#xA;-resource c/PixelTest/PixelTest.hex@pixelTest&#xA;-resource c/Lisp/Lisp.hex@Lisp" />
+    <option additional="-resource c/simple/minimal.hex@minimalc&#xA;-resource c/hello/hello.hex@hello&#xA;-resource c/BlitTest/BlitTest.hex@blitTest&#xA;-resource c/InputTest/InputTest.hex@inputTest&#xA;-resource c/PixelTest/PixelTest.hex@pixelTest&#xA;-resource c/Lisp/Lisp.hex@Lisp&#xA;-dce full" />
   </build>
   <!-- haxelib libraries -->
   <haxelib>
