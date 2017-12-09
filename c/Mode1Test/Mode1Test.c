@@ -104,48 +104,79 @@ void setMap() {
 #define tile_palette_top  panel_top+1
 #define tile_palette_left panel_left+3
 
-uint8_t tileset_width = 14;
-uint8_t tileset_height = 8;
+#define tileset_width 14
+#define tileset_height 8
+
+uint8_t tileset_colours [tileset_width * tileset_height / 2]; // 4 bits per colour id.
+
+
 int8_t palette_offset_x = 0;
 int8_t palette_offset_y = 0;
 
 uint8_t tile_a_x = 1;
 uint8_t tile_a_y = 0;
-uint8_t tile_b_x = 0;
-uint8_t tile_b_y = 0;
- 
+
+uint8_t erase_tile = 0;
+
+uint8_t get_palette_tile_color(uint8_t tileid) {
+  if (tileid > (tileset_width*tileset_height) ) return 0;
+  uint8_t result = tileset_colours[tileid >>1];
+  if (tileid & 1) result>>=4;
+  return result & 0x0f;
+}
+
+void set_palette_tile_color(uint8_t tileid, uint8_t color) {
+  if (tileid > (tileset_width*tileset_height) ) return;
+  uint8_t mask = 0x0f;
+  color&=mask;
+  if (tileid & 1) {
+    mask<<=4;
+    color<<=4;
+  }
+  tileset_colours[tileid>>1] = (tileset_colours[tileid>>1] & ~mask) | color;
+}
+
+
+int16_t screen_to_palette_tile(int16_t x, int16_t y) {
+  x-=tile_palette_left-3;
+  y-=tile_palette_top-1;
+  int16_t tile_x = (x/9);
+  int16_t tile_y = (y/9);
+
+  if (tile_x<0 || tile_y <0 || tile_x>=26 || tile_y >=4) return -1;
+
+  return tile_x <<8 | tile_y;
+}
+
+uint8_t palette_to_tileid(uint8_t x, uint8_t y) {
+  uint16_t tilex= (palette_offset_x +x) % tileset_width;
+  uint8_t halfskip= ((palette_offset_x +x) /tileset_width) * (tileset_height/2);
+  uint16_t tiley= ((palette_offset_y + y +halfskip)) % tileset_height  ;
+  return tilex+tiley*tileset_width;
+}
+
 
 void blitTilePalette( ) {
   serial_fillRect(panel_left,panel_top,240,35,1);
 
   serial_fillRect(tile_palette_left+(tile_a_x*9)-1,tile_palette_top+(tile_a_y*9)-1,10,10,7);
-  serial_fillRect(tile_palette_left+tile_b_x*9-1,tile_palette_top+tile_b_y*9-1,10,10,3);
- 
-  for (uint16_t ty=0; ty<4; ty++){
-    for (uint16_t tx =0 ;tx < 26; tx++) {
-      uint16_t tilex= (palette_offset_x +tx) % tileset_width;
-      uint8_t halfskip= ((palette_offset_x +tx) /tileset_width) * (tileset_height/2);
-      uint16_t tiley= ((palette_offset_y + ty +halfskip)) % tileset_height  ;
-      blitTile(panel_left+3+tx*9,panel_top+1+ty*9,tilex+tiley*tileset_width,0);
+
+  for (uint8_t ty=0; ty<4; ty++){
+    for (uint8_t tx =0 ;tx < 26; tx++) {
+      uint8_t tileid = palette_to_tileid(tx,ty);
+      uint8_t colour = get_palette_tile_color(tileid);
+      if (tileid==erase_tile) serial_fillRect(tile_palette_left+tx*9-1,tile_palette_top+ty*9-1,10,10,3);
+      blitTile(tile_palette_left+tx*9,tile_palette_top+ty*9,tileid,colour);
     }
   }
 }
 
-int16_t screen_to_palette_tile(int16_t x, int16_t y) {
-  x-=panel_left-3;
-  y-=panel_top-1;
-  int16_t tile_x = (x/9);
-  int16_t tile_y = (y/9);
-  
-  if (tile_x<0 || tile_y <0 || tile_x>=26 || tile_y >=4) return -1;
-  
-  return tile_x <<8 | tile_y;
-}
+
 
 void translateTilePalette(uint8_t dx, uint8_t dy) {
   palette_offset_x += dx;
   palette_offset_y += dy;
-  
+
   if (palette_offset_x >= tileset_width) {
 	palette_offset_x-= tileset_width;
 	palette_offset_y += tileset_height /2;
@@ -155,11 +186,11 @@ void translateTilePalette(uint8_t dx, uint8_t dy) {
 	palette_offset_x+= tileset_width;
 	palette_offset_y -= tileset_height /2;
   }
-  
+
   if (palette_offset_y >= tileset_height) {
 	palette_offset_y-=tileset_height;
   }
-  
+
   if (palette_offset_y < 0) {
 	palette_offset_y+=tileset_height;
   }
@@ -171,9 +202,6 @@ int main (void)
 
 
   uint16_t shipX =150;
-
-  tile_a_x=1;
-  tile_b_x=5;
 
   setMap();
 
@@ -194,6 +222,8 @@ int main (void)
       uint16_t tile_y = mouse_y / 8;
 
       uint16_t mtile = tile_y*32+tile_x;
+      int16_t ptile = screen_to_palette_tile(mouse_x,mouse_y);
+      uint8_t tileid=palette_to_tileid(ptile>>8,ptile&0xff);
 
       uint8_t ch = PORT_CONSOLE;
       switch (ch) {
@@ -210,17 +240,44 @@ int main (void)
            translateTilePalette(0,1);
           break;
         case 'z':
-          tileMap[mtile]= (tileMap[mtile] & 0xf0ff) | ((tileMap[mtile] - 0x0100)  & 0x0f00);
+        if (ptile!=-1) {
+          set_palette_tile_color(tileid,get_palette_tile_color(tileid)-1);
+        } else {
+            tileMap[mtile]= (tileMap[mtile] & 0xf0ff) | ((tileMap[mtile] - 0x0100)  & 0x0f00);
+          }
           break;
         case 'x':
-          tileMap[mtile]= (tileMap[mtile] & 0xf0ff) | ((tileMap[mtile] + 0x0100)  & 0x0f00) ;
+          if (ptile!=-1) {
+            set_palette_tile_color(tileid,get_palette_tile_color(tileid)-1);
+          } else {
+            tileMap[mtile]= (tileMap[mtile] & 0xf0ff) | ((tileMap[mtile] + 0x0100)  & 0x0f00) ;
+          }
       }
-      if (ch=='z') {
-      }
-      if (ch=='x') {
+      uint16_t buttons = PORT_BUTTONS;
+
+      if (mouse_y > panel_top) {
+        if (buttons & 0x2000) {
+  		      if (ptile != -1) {
+  			       tile_a_x=ptile >>8;
+  			       tile_a_y=ptile &0xff;
+  		      }
+  	    }
+        if (buttons & 0x8000) {
+    		  if (ptile != -1) {
+            erase_tile=palette_to_tileid(ptile >>8,ptile &0xff);
+    		  }
+  	    }
+      } else {
+        if (buttons & 0x2000) {
+          uint8_t a_id = palette_to_tileid(tile_a_x,tile_a_y);
+          tileMap[mtile]=a_id | (get_palette_tile_color(a_id)<<8);
+        }
+        if (buttons & 0x8000) {
+          uint8_t a_id = erase_tile;
+          tileMap[mtile]=a_id | (get_palette_tile_color(a_id)<<8);
+        }
 
       }
-
 
       uint8_t now = PORT_TIME;
       uint8_t nextStep = now>lastTime;
@@ -233,6 +290,10 @@ int main (void)
 
       renderMode1(tileset,tileMap,tileset_palettes,32*2,0,0);
 
+      for (uint16_t b=0;b <16; b++) {
+          serial_fillRect(100+b*6,30,5,5,(buttons & (1<<b))?2:1);
+      }
+
       blitTilePalette();
       //write a grid of rectangles showing the serial pixel output palette
       for (uint16_t ty=0;ty <4; ty++) {
@@ -241,27 +302,10 @@ int main (void)
         }
       }
 
-      uint16_t buttons = PORT_BUTTONS;
-      for (uint16_t b=0;b <16; b++) {
-          serial_fillRect(100+b*6,30,5,5,(buttons & (1<<b))?2:1);
-      }
-      
-      if (buttons & 0x2000) {
-		  int16_t tile = screen_to_palette_tile(mouse_x,mouse_y);
-		  if (tile != -1) {
-			  tile_a_x=tile >>8;
-			  tile_a_y=tile &0xff;
-		  } 
-	  }
-     if (buttons & 0x8000) {
-		  int16_t tile = screen_to_palette_tile(mouse_x,mouse_y);
-		  if (tile != -1) {
-			  tile_a_x=tile >>8;
-			  tile_a_y=tile &0xff;
-		  } 
-	  }
-	  
-      drawImageData(mouse_x-4,mouse_y-3,3,16,arrow,arrowPal,0x72,0);
+
+      drawImageData(mouse_x-1,mouse_y-1,3,16,arrow,arrowPal,0x72,0);
+      serial_fillRect(mouse_x,0,1,195,1);
+      serial_fillRect(0,mouse_y,255,1,1);
 
       //put frame onscreen in lowres
       PORT_DISPLAY_SHIFT=0xff;
