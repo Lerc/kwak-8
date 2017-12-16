@@ -101,7 +101,7 @@ blit_port_start = Display_port_start + 0x08   ;  this is the same port space as 
 
  												 High 4 Bits Wave shift. 1000 no shift, Applies a gamma curve in the time domain
 
- voice_BendWave = +0C		low 5 Bits Bend Duration	 (intValue/32)² * 30 Hz 
+ voice_BendWave = +0C		low 5 Bits Bend Duration	 ((intValue+1)/33)² * 30 Hz 
  							   				high 3 bits Bend phase 0000=0 1000=Pi,   
 
  voice_BendAmplitude = +0D 
