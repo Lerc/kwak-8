@@ -2726,7 +2726,34 @@ var Voice = function(outputRate) {
 };
 Voice.__name__ = true;
 Voice.prototype = {
-	triangleWave: function(v) {
+	makeSigmoidFunction: function(weight,low,high) {
+		if(high == null) {
+			high = 1.0;
+		}
+		if(low == null) {
+			low = 0.0;
+		}
+		if(weight == null) {
+			weight = 0.5;
+		}
+		var range = high - low;
+		if(weight == 0) {
+			return function(a) {
+				return a * range + low;
+			};
+		}
+		var w = 0.4999 / weight - 0.5;
+		var mid = (high + low) / 2;
+		var xlate = function(a1) {
+			return Math.min(1,Math.max(-1,a1 * 2 - 1));
+		};
+		return function(a2) {
+			var tmp = xlate(a2) * w;
+			var tmp1 = Math.abs(xlate(a2));
+			return tmp / (w - tmp1 + 1) / 2 * range + mid;
+		};
+	}
+	,triangleWave: function(v) {
 		return Math.asin(Math.sin(v)) * 2 / Math.PI;
 	}
 	,chain: function(a,b) {
@@ -2761,20 +2788,13 @@ Voice.prototype = {
 		var low = this.makeLowPassFilter(belowFrequency);
 		return this.chain(high,low);
 	}
+	,makeRadianFunction: function(fn) {
+		return function(a) {
+			return fn(a / 6.2831853071795862 % 1) * 6.2831853071795862;
+		};
+	}
 	,makeWaveShiftFunction: function(value) {
-		if(value > 7) {
-			var v = (value - 8) / 8;
-			var x = v * v * 16 + 1;
-			return function(a) {
-				return Math.pow(a / 6.2831853071795862,x) * 6.2831853071795862;
-			};
-		} else {
-			var v1 = 1 - value / 8;
-			var x1 = v1 * v1 * 16 + 1;
-			return function(a1) {
-				return 1 - Math.pow(1 - a1 / 6.2831853071795862,x1) * 6.2831853071795862;
-			};
-		}
+		return this.makeRadianFunction(this.makeSigmoidFunction((value / 15.0 - 0.5) * 1.95));
 	}
 	,makeWaveGenerator: function() {
 		var w = (this.waveBase / 15 - 0.5) * 2;
@@ -2803,13 +2823,15 @@ Voice.prototype = {
 			return fnA(a) * weighta + fnB(a) * weightb;
 		};
 	}
-	,squarishFunction: function(weight) {
-		return function(a) {
-			return Math.atan(Math.sin(a) * (2 + 300 * weight)) * 2 / Math.PI * (1 + (1 - weight) * 0.2);
-		};
-	}
 	,sineSquare: function(weight) {
-		return this.weightedFunction(this.squarishFunction(weight),Math.sin,weight / (Math.PI / 2),1 - weight);
+		return this.weightedFunction(this.sigmoidToSquare(weight * 15 + 2),Math.sin,weight / (Math.PI / 2),1 - weight);
+	}
+	,sigmoidToSquare: function(weight) {
+		var _gthis = this;
+		return function(a) {
+			var p = (a + Math.PI / 2) % (Math.PI * 2);
+			return (1 - 1.0 / (1.0 + Math.exp((p / Math.PI - 0.5) * (weight * weight)))) * (1.0 / (1.0 + Math.exp((p / Math.PI - 1.5) * (weight * weight)))) * 2 - 1;
+		};
 	}
 	,nextSample: function() {
 		this.soundAge += this.sampleStep;
@@ -2843,9 +2865,10 @@ Voice.prototype = {
 	}
 	,set_bendDuration: function(value) {
 		this.bendDuration = value;
-		var v = this.bendDuration / 32.0;
+		var v = (this.bendDuration + 1) / 33.0;
+		haxe_Log.trace(v,{ fileName : "Voice.hx", lineNumber : 206, className : "Voice", methodName : "set_bendDuration"});
 		this.bendHz = Math.pow(v,2) * 30;
-		this.bendStep = value == 0 ? 0.0 : 1.0 / (this.bendHz * Math.PI * 2);
+		this.bendStep = 1.0 / (this.bendHz * Math.PI * 2);
 		return value;
 	}
 	,set_hold: function(value) {
