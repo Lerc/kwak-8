@@ -56,6 +56,15 @@ class Voice {
         filter=makeBandPassFilter(100,8000);
     }
 
+    function makeSigmoidFunction (weight=0.5, low=0.0, high=1.0) : Float->Float{
+      var range = high-low;
+      if (weight==0) return function(a) {return a*range+low;};      
+      var w = 0.4999/weight-0.5; //just a tad below |1| at the ends
+      var mid = (high+low)/2;
+      var xlate = function (a:Float) return {Math.min(1,Math.max(-1,(a*2-1)));};   
+      return function(a:Float) {return (xlate(a) * w / (w - Math.abs(xlate(a)) +1) ) / 2 * range + mid;};
+    }
+
     function triangleWave(v) {
         return Math.asin(Math.sin(v))*2/Math.PI;
     } 
@@ -92,7 +101,13 @@ class Voice {
         return chain(high,low);
     }
 
-    function makeWaveShiftFunction(value:Int) : Float->Float  {  
+    function makeRadianFunction(fn :Float->Float): Float->Float {
+        return function (a) {return fn( (a/TWOPI)%1 )*TWOPI; };
+    }
+
+    function makeWaveShiftFunction(value:Int) : Float->Float {        
+        return makeRadianFunction( makeSigmoidFunction( (value/15.0 - 0.5)*1.95));
+    /*    
         if (value>7) {
             var v=((value-8)/8);
             var x=v*v*16+1;
@@ -101,7 +116,8 @@ class Voice {
             var v=1-((value)/8);
             var x=v*v*16+1;
             return function(a) { return 1-Math.pow(1-(a/TWOPI),x) * TWOPI;};
-        }   
+        } 
+      */    
     }
 
     function makeWaveGenerator() : Float->Float {
@@ -142,8 +158,19 @@ class Voice {
     }
 
     function sineSquare(weight : Float) : Float->Float {
-        return weightedFunction(squarishFunction(weight),Math.sin, weight/(Math.PI/2),1-weight);
+        return weightedFunction(sigmoidToSquare(weight*15+2),Math.sin, weight/(Math.PI/2),1-weight);
     }
+
+    inline function shiftSigmoid(x:Float,shift:Float,scale:Float) :Float {
+         return 1.0/ (1.0+ Math.exp((x-shift) * (scale*scale)));
+    }
+
+    function sigmoidToSquare(weight) :Float->Float {
+        return function(a) {  var p:Float= (a+Math.PI/2)%(Math.PI*2); 
+                 return ( (1-shiftSigmoid((p/Math.PI),0.5,weight))  *   shiftSigmoid(((p/Math.PI)),1.5,weight))*2-1;
+            }
+    }
+
     public function nextSample() {
         soundAge+=sampleStep;
         var bendShift= 0.0;
@@ -175,9 +202,10 @@ class Voice {
 
     function set_bendDuration(value) : Int {
         bendDuration = value;
-        var v = bendDuration / 32.0;
+        var v = (bendDuration+1) / 33.0;
+        trace(v);
         bendHz = Math.pow(v,2)*30;
-        bendStep= value==0 ? 0.0 : 1.0/ (bendHz * Math.PI * 2);
+        bendStep= 1.0/ (bendHz * Math.PI * 2);
         return value;
     }
 
