@@ -6,6 +6,13 @@ import js.html.Uint16Array;
 import js.html.Uint8Array;
 
 using StringTools;
+
+typedef DecodedInstruction = {
+	var fn : Dynamic; //Int->Int->Void;
+	var a : Int;
+	var b : Int;
+}
+
 /**
  * ...
  * @author Lerc
@@ -145,6 +152,7 @@ class AVR8
 	public var ram(default, null) : Uint8Array;
 	var ramSigned : Int8Array;
 	var ramAsWords : Uint16Array;
+	var table : Array<DecodedInstruction>= [for (i in 0...0xffff) null];
 	public var breakPoint : Int = 0xffff;
 	public var log : String = ""; 
 	public var progMem(default,null) : Uint16Array;
@@ -193,6 +201,7 @@ class AVR8
 	inline static var TIMER0_COMPB = 0x22;
 	inline static var TIMER0_OVF = 0x24;
 
+
 	public function new() 
 	{		
 		ram = new Uint8Array(65536);
@@ -201,17 +210,21 @@ class AVR8
 		
 		progMem = new Uint16Array(65536);
 		progMemAsBytes = new Uint8Array(progMem.buffer);
+
+		for (i in 0...0xffff) {
+			table[i]=instructionAsFunction(i);
+		}
 	}
 	
 	public function clearRam() {
-		for (byte in ram) {
-			byte = 0;
+		for (i in 0...ram.length) {
+			ram[i] = 0;
 		}
 	}
 	
 	public function clearProgMem() {
-		for (word in progMem) {
-			word = 0;
+		for (i in 0...progMem.length) {
+			progMem[i] = 0;
 		}
 	}
 
@@ -276,10 +289,10 @@ class AVR8
 	  } else {
 		//handle IO here
 		
-			//trace('Out ${address.hex(2)} <- $value');
-			if (outPortFunctions[address] != null) {
-				outPortFunctions[address](value);
-			}
+		//trace('Out ${address.hex(2)} <- $value');
+		if (outPortFunctions[address] != null) {
+			outPortFunctions[address](value);
+		}
 		  
 		ram[address] = value;
 	  }
@@ -378,6 +391,1090 @@ class AVR8
 		//log += hereString() + " " + s + "\n";
 		
 	}
+
+	function _nop(_,__) {
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _cpse(d,r) {
+		var skipLength=0;
+		if (ram[d] == ram[r]) {
+			skipLength = instructionLength(progMem[PC + 1]);
+			//trace("skiplength =" , skipLength); 							
+		} 
+		clockCycleCount+=1+skipLength; PC+=1 +skipLength;
+	}
+
+	function _cp(d,r) {
+		sub(ram[d], ram[r]);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _sub(d,r) {
+		ram[d] = sub(ram[d], ram[r]);
+		clockCycleCount+=1; PC+=1;		
+	}
+
+	function _adc(d,r) {
+	    ram[d] = add(ram[d], ram[r], SREG & CFLAG);	
+		clockCycleCount+=1; PC+=1;	
+	}
+
+	function _and(d,r) {
+		var result = ram[d] & ram[r];	
+		ram[d] = result;
+		setFlagsFromLogicResult(result);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _eor(d,r) {
+		var result = ram[d] ^ ram[r];	
+		ram[d] = result;
+		setFlagsFromLogicResult(result);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _or(d,r) {
+		var result = ram[d] | ram[r];	
+		ram[d] = result;
+		setFlagsFromLogicResult(result);
+		clockCycleCount+=1; PC+=1;						
+	}
+
+	function _mov(d,r) {
+		ram[d] = ram[r];
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _movw(d,r) {
+		ramAsWords[d] = ramAsWords[r];
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _muls(d,r) {
+		var result = (ramSigned[d] * ramSigned[r]) & 0xffff;
+		r0 = (result & 0xff);
+		r1 = (result & 0xff00) >> 8;
+		SREG &= ~(ZFLAG|CFLAG);
+		if (result == 0) SREG |= ZFLAG;
+		else if ( (result & 0x8000) == 0x8000) SREG |= CFLAG;
+		clockCycleCount+=1; PC+=2;
+	}
+
+	function _cpc(d,r) {
+		sub_with_carry(ram[d], ram[r], SREG & CFLAG);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _sbc(d,r) {
+		ram[d] = sub_with_carry(ram[d], ram[r], SREG & CFLAG);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _add(d,r) {
+		ram[d] = add(ram[d], ram[r]);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _cpi(d,k) {	
+		SREG |= ZFLAG;
+		sub(ram[d], k);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _sbci(d,k) {
+		ram[d]=sub_with_carry(ram[d], k, SREG & CFLAG);
+		clockCycleCount+=1; PC+=1;				
+	}
+
+	function _subi(d,k) {
+		ram[d]=sub(ram[d], k);
+		clockCycleCount+=1; PC+=1;				
+	}
+
+	function _ori(d,k) {
+		ram[d]=ram[d] | k;
+		setFlagsFromLogicResult(ram[d]);				
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _andi(d,k)	{
+		ram[d]=ram[d] & k;
+		setFlagsFromLogicResult(ram[d]);								
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _std_y(q,d) {
+		memStore(Y + q, ram[d]);
+		clockCycleCount+=2; PC+=1;
+	}
+
+	function _std_z(q,d) {
+		memStore(Z + q, ram[d]);
+		clockCycleCount+=2; PC+=1;
+	}
+
+	function _ldd_y(d,q) {	
+		ram[d] = memLoad(Y + q);
+		clockCycleCount+=2; PC+=1;
+	}
+
+	function _ldd_z(d,q) {	
+		ram[d] = memLoad(Z + q);
+		clockCycleCount+=2; PC+=1;
+	}
+
+	function _in(d,a) {
+		ram[d] = memLoad(a + 32);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _out(a,d) {
+		memStore(a + 32,ram[d]);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _rjmp(k,_) {
+		var nextPC = PC + k + 1;
+		clockCycleCount+=2; PC=nextPC;
+	}
+
+	function _rcall(k,_) {
+		var nextPC = PC + k + 1;
+		push16(PC + 1);
+		clockCycleCount+=3; PC=nextPC;
+	}
+
+	function _ldi(d,k) {
+		ram[d] = k;
+		clockCycleCount+=1; PC+=1;				
+	}
+
+	function _brbs(bit,k) {
+		if ((SREG & bit)!=0) {
+			PC=PC+k+1;
+			clockCycleCount+=2;
+		} else {
+			PC+=1;
+			clockCycleCount+=1;
+		}
+	}
+
+	function _brbc(bit,k) {
+		if ((SREG & bit)==0) {
+			PC=PC+k+1;
+			clockCycleCount+=2;
+		} else {
+			PC+=1;
+			clockCycleCount+=1;
+		}
+	}
+
+	function _bld(d,bit) {
+		if ( (SREG & TFLAG) != 0) {
+			ram[d] |= bit;
+		} else {
+			ram[d] &= ~bit;								
+		}
+		PC+=1;
+		clockCycleCount+=1;
+	}
+
+	function _bst(d,bit) {
+		if ( (ram[d] & bit) != 0) {
+			SREG |= ZFLAG;
+		} else {
+			SREG &= ~ZFLAG;
+		}
+		PC+=1;
+		clockCycleCount+=1;
+	}
+
+	function _sbrc(d,bit) {
+		if ( (ram[d] & bit) == 0) {
+			var skipLength = instructionLength(progMem[PC + 1]);
+			PC += 1 +skipLength;
+			clockCycleCount+= 1 + skipLength;							
+		}
+		else { clockCycleCount+=1;	PC+=1; }
+	}
+
+	function _sbrs(d,bit) {
+		if ( (ram[d] & bit) != 0) {
+			var skipLength = instructionLength(progMem[PC + 1]);
+			PC += 1 +skipLength;
+			clockCycleCount+= 1 + skipLength;							
+		}
+		else { clockCycleCount+=1;	PC+=1; }
+	}
+
+	function _lds(d,_){
+		var k = progMem[PC + 1];
+		ram[d] = memLoad(k);
+		clockCycleCount+=2; PC+=2;
+	}
+
+	function _ld_z_p(d,_) {
+		//LD Rd,Z+
+		ram[d] = memLoad(Z);
+		Z += 1;								
+		clockCycleCount+=2; PC+=1;								
+	}	
+
+	function _ld_p_z(d,_) {
+		//LD Rd,-Z
+		Z -= 1;
+		ram[d] = memLoad(Z);
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _lpm_z (d,_) {
+		//LPM Rd,Z
+		ram[d] = progMemAsBytes[Z];
+		clockCycleCount+=3; PC+=1;								
+	}
+
+	function _lpm_z_p (d,_) {
+		//LPM Rd,Z+
+		ram[d] = progMemAsBytes[Z];
+		Z += 1;		
+		clockCycleCount+=3; PC+=1;								
+	}
+
+	function _elpm_z (d,_) {
+		//ELPM Rd,Z
+		ram[d] = progMemAsBytes[(RAMPZ << 16) | Z];
+		clockCycleCount+=3; PC+=1;								
+	}
+
+	function _elpm_z_p (d,_) {								
+		//ELPM Rd,Z+
+		ram[d] = progMemAsBytes[(RAMPZ << 16) | Z];
+		Z += 1; if (Z == 0) RAMPZ += 1;
+		clockCycleCount+=3; PC+=1;								
+	}
+
+	function _ld_y_p (d,_) {
+		//LD Rd,Y+
+		ram[d] = memLoad(Y);
+		Y += 1;
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _ld_p_y (d,_) {
+		//LD Rd,-Y
+		Y -= 1;
+		ram[d] = memLoad(Y);
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _ld_x (d,_) {
+		//LD Rd,X
+		ram[d] = memLoad(X);
+		clockCycleCount+=2; PC+=1;								
+	}
+	
+
+	function _ld_x_p (d,_) {
+		//LD Rd,X+
+		ram[d] = memLoad(X);
+		X += 1;
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _ld_p_x (d,_) {
+		//LD Rd,-X
+		X -= 1;
+		ram[d] = memLoad(X);								
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _pop (d,_) {
+		//POP
+		SP += 1;
+		ram[d] = ram[SP];
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _sts(d,_) {
+		//STS k,Rd
+		var k = progMem[PC + 1];
+		memStore(k,ram[d]);
+		clockCycleCount+=2; PC+=2;								
+	}
+
+	function _st_z_p(d,_) {
+		//ST Z+,Rd
+		memStore(Z,ram[d]);
+		Z += 1;								
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _st_p_z(d,_) {
+		//ST -Z,Rd
+		Z -= 1;
+		memStore(Z,ram[d]);
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _st_y_p(d,_) {
+		//ST Y+,Rd
+		memStore(Y,ram[d]);
+		Y += 1;
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _st_p_y(d,_) {
+		//ST -Y,Rd
+		Y -= 1;
+		memStore(Y,ram[d]);
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _st_x(d,_) {
+		//ST X,Rd
+		memStore(X,ram[d]);
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _st_x_p(d,_) {
+		//ST X+,Rd
+		memStore(X,ram[d]);
+		X += 1;
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _st_p_x(d,_){
+		//ST -X,Rd
+		X -= 1;
+		memStore(X,ram[d]);
+		clockCycleCount+=2; PC+=1;
+	}
+
+	function _push(d,_) {
+		//PUSH
+		ram[SP]=ram[d];
+		SP -= 1;
+		clockCycleCount+=2; PC+=1;								
+	}
+
+	function _com(d,_) {
+		ram[d] = 0xff - ram[d];
+		SREG &= ~(SFLAG | VFLAG | NFLAG | ZFLAG);
+		SREG |= CFLAG;
+		if ((ram[d] & 0x80) != 0) { 	SREG |= SFLAG | NFLAG;	}
+		if (ram[d] == 0) SREG |= ZFLAG;
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _neg(d,_) {
+		ram[d] = sub(0, ram[d]);
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _swap(d,_) {
+		var value = ram[d];
+		ram[d] = ((value << 4) | (value >> 4)) & 0xff;
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _inc(d,_) {
+		SREG &= ~(SFLAG | VFLAG | NFLAG | ZFLAG);
+		var v = ram[d] == 0x7f;
+		var n = (ram[d] & 0x80) != 0; 
+		ram[d] += 1;
+		if (v) SREG |= VFLAG;
+		if (n) SREG |= NFLAG;
+		if (v != n) SREG |= NFLAG;
+		if (ram[d] == 0) SREG |= ZFLAG;
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _asr(d,_) {
+		var value = ram[d];
+		SREG &= ~(SFLAG | VFLAG | NFLAG | ZFLAG | CFLAG);
+		var carry = (value & 1);
+		SREG |= carry;
+		var topBit = (value & 0x80) ;
+		var newValue = (value >> 1) | topBit;
+		ram[d] = newValue;
+		if (newValue == 0) SREG |= ZFLAG;
+		var n = topBit != 0;
+		var v = xor(n, carry != 0);
+		var s = xor(n, v);
+		if (n) SREG |= NFLAG;									
+		if (v) SREG != VFLAG;
+		if (s) SREG != SFLAG;
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _lsr(d,_) {
+		var value = ram[d];
+		var bit0 = value & 1;
+		var newValue = (value >> 1) ;
+		ram[d] = newValue;
+		SREG &= ~(SFLAG | VFLAG | NFLAG | ZFLAG | CFLAG);
+		if (bit0 != 0) SREG |= (CFLAG | VFLAG | SFLAG);
+		if (newValue == 0) SREG |= ZFLAG;
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _ror(d,_) {
+		var value = ram[d];
+		var carry = (SREG & CFLAG);
+		var bit0 = value & 1;
+		var newValue = (value >> 1) | carry << 7;
+		ram[d] = newValue;
+		SREG &= ~(SFLAG | VFLAG | NFLAG | ZFLAG | CFLAG);
+		if (bit0 != 0) SREG |= (CFLAG | VFLAG | SFLAG);
+		if (newValue == 0) SREG |= ZFLAG;
+		clockCycleCount+=1; PC+=1;
+	}
+
+	function _bset(bit,_){
+		SREG |= bit;
+		clockCycleCount+=1; PC+=1;
+	} 
+
+	function _bclr(bit,_){
+		SREG &= ~bit;
+		clockCycleCount+=1; PC+=1;
+	} 
+
+	function _ret(_,__) {
+		PC = pop16();
+		clockCycleCount+=4;
+	}
+
+	function _reti(_,__) {
+		PC = pop16();
+		SREG |= IFLAG;
+		clockCycleCount+=4;
+	}
+
+	function _ijmp(_,__) {
+		PC = Z;
+		clockCycleCount+=2;
+	}
+
+	function _icall(_,__) {
+		push16(PC + 1);
+		PC = Z;
+		clockCycleCount+=3;
+	}
+
+	function _dec(d,_) {
+		var value = ram[d]-1;
+		var v = (value == 0x7f);
+		var n = ((value & 0x80) != 0);
+		ram[d] = value;
+		SREG &= ~(SFLAG | VFLAG | NFLAG | ZFLAG);
+		if (v) SREG |= VFLAG;
+		if (n) SREG |= NFLAG;
+		if (xor(n, v)) SREG |= SFLAG;
+		if (value==0) SREG |= ZFLAG;
+		clockCycleCount+=1; PC+=1;																
+	}
+
+	function _jmp(highBits,_) {
+		var k = progMem[PC + 1];
+		k |= highBits;
+		clockCycleCount+=3; PC=k;
+	}
+
+	function _call(highBits,_) {
+		var k = progMem[PC + 1];
+		k |= highBits;
+		push16(PC + 2);
+		clockCycleCount+=4; PC=k;																
+	}
+
+	function _sbiw(d,k) {
+		var value = ram[d] + (ram[d + 1] << 8);
+		
+		SREG &= ~(SFLAG | VFLAG  | NFLAG | ZFLAG | CFLAG);
+		var result, v, n, z, c;
+
+		var rdh7 = (ram[d + 1] & 0x80) != 0;
+
+		result =  value - k;
+
+		n = (result & 0x8000) != 0;						
+		v = !n && rdh7;
+		z = (result & 0xffff) == 0 ;
+		c =  n && !rdh7;
+		
+		if (n) SREG |= NFLAG;
+		if (v) SREG |= VFLAG;
+		if (n != v) SREG |= SFLAG; 
+		if (z) SREG |= ZFLAG;
+		if (c) SREG |= CFLAG;
+
+		ram[d] = result & 0xff;
+		ram[d + 1] = (result >> 8) & 0xff;
+
+		clockCycleCount+=2; PC+=1;
+	}
+
+
+	function _adiw(d,k) {
+		var value = ram[d] + (ram[d + 1] << 8);
+		
+		SREG &= ~(SFLAG | VFLAG  | NFLAG | ZFLAG | CFLAG);
+		var result, v, n, z, c;
+
+		var rdh7 = (ram[d + 1] & 0x80) != 0;
+
+		result =  value + k;
+
+		n = (result & 0x8000) != 0;						
+		v = n && !rdh7;
+		z = (result & 0xffff) == 0 ;
+		c = !n && rdh7;
+		
+		if (n) SREG |= NFLAG;
+		if (v) SREG |= VFLAG;
+		if (n != v) SREG |= SFLAG; 
+		if (z) SREG |= ZFLAG;
+		if (c) SREG |= CFLAG;
+
+		ram[d] = result & 0xff;
+		ram[d + 1] = (result >> 8) & 0xff;
+
+		clockCycleCount+=2; PC+=1;
+	}
+
+	function _mul(d,r) {
+		var product = ram[d] * ram[r];
+
+		r0 = (product & 0xff);
+		r1 = ((product >> 8) & 0xff);
+
+		SREG &= ~(CFLAG | ZFLAG);
+		if ( (product & 0x8000) != 0) SREG |= CFLAG;
+		if (product == 0) SREG |= ZFLAG;
+		clockCycleCount+=2; PC+=1;																
+	}
+
+	function _fmuls(_,__) {
+		trace("mulsu, fmul, fmuls, fmulsu unimplemented");
+	}
+
+	function _sleep(_,__) {
+		traceInstruction('sleep not implemented');
+	}
+
+	function _break(_,__) {
+		traceInstruction('break not implemented');
+	}
+
+	function _wdr(_,__) {
+		traceInstruction('wdr not implemented');
+	}
+
+	function _spm_z(_,__) {
+		traceInstruction('spm not implemented');
+	}
+
+	function _spm_z_p(_,__) {
+		traceInstruction('spm Z+ not implemented');										
+	}
+
+	function _eijmp(_,__) {
+		traceInstruction('eijmp not implemented');
+	}
+
+	function _eicall(_,__) {
+		traceInstruction('eicall not implemented');										
+	}
+
+	function _no_bitio(_,__) {
+		trace("cbi sbic sbi sbis unimplemented");
+	}
+
+	function _not_an_instruction(a,b) {
+		traceInstruction('not an instruction !?!');
+	}
+
+	function apply2(fn:Int->Int->Void,a,b) : DecodedInstruction {
+		var unbound = untyped __js__('{0}.method',fn);
+		return {fn:unbound,a:a,b:b}; 
+	}
+
+	function instructionAsFunction(instruction) : DecodedInstruction {
+		switch (instruction & 0xf000) {
+			case 0x0000: {  //nop movw muls mulsu fmul fmuls fmulsu cpc sbc add 
+			switch (instruction & 0x0c00) { 
+				case 0x0000: {
+					switch (instruction & 0xff00) {
+						case 0x0000: {  
+							return apply2(_nop,0,0);
+						}						
+						case  0x0100: { //movw
+							var d = (instruction & 0x00f0) >> 4;
+							var r = (instruction & 0x000f);
+							return apply2(_movw,d,r);
+						}
+						case 0x0200: { //muls
+							var d = 16+(instruction & 0x00f0) >> 4;
+							var r = 16+(instruction & 0x000f);
+							return apply2(_muls,d,r);
+						}
+						case 0x0300: { //mulsu, fmul, fmuls, fmulsu
+							return apply2(_fmuls,0,0);
+						}
+					}
+				}
+				case 0x0400: { //cpc
+					var d = (instruction & 0x01f0) >> 4;
+					var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+					return apply2(_cpc,d,r);
+				}
+				case 0x0800: { //sbc
+					var d = (instruction & 0x01f0) >> 4;
+					var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+					return apply2(_sbc,d,r);
+				}
+				case 0x0c00: { //add
+					var d = (instruction & 0x01f0) >> 4;
+					var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+					return apply2(_add,d,r);
+				}
+			}
+			throw "shouldn't happen";
+			}
+			case 0x1000: { //cpse cp sub adc 
+				switch (instruction & 0x0c00) { 
+					case 0x0000: {
+						var d = (instruction & 0x01f0) >> 4;
+						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+						return apply2(_cpse,d,r);
+					}
+					case 0x0400: { //cp					
+						var d = (instruction & 0x01f0) >> 4;
+						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+						return apply2(_cp,d,r);
+					}
+					case 0x0800: { //sub
+						var d = (instruction & 0x01f0) >> 4;
+						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+						return apply2(_sub,d,r);
+
+					}
+					case 0x0c00: { //adc
+						var d = (instruction & 0x01f0) >> 4;
+						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+						return apply2(_adc,d,r);
+					}
+				}
+			}
+			case 0x2000: { //and eor or mov
+				switch (instruction & 0x0c00) { 
+					case 0x0000: {  //and
+						var d = (instruction & 0x01f0) >> 4;
+						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+						return apply2(_and,d,r);
+					}
+					case 0x0400: { //eor
+						var d = (instruction & 0x01f0) >> 4;
+						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+						return apply2(_eor,d,r);
+					}
+					case 0x0800: { //or
+						var d = (instruction & 0x01f0) >> 4;
+						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+						return apply2(_or,d,r);
+					}
+					case 0x0c00: { //mov
+						var d = (instruction & 0x01f0) >> 4;
+						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+						return apply2(_mov,d,r);
+					}
+				}
+				
+			}
+			case 0x3000: { //cpi 
+				var k = ((instruction & 0x0f00) >> 4) | (instruction & 0x000f);
+				var d = 16 +  ( (instruction & 0x00f0) >> 4);
+
+				return apply2(_cpi,d,k);
+			}
+			case 0x4000: { //sbci
+				var k = ((instruction & 0x0f00) >> 4) | (instruction & 0x000f);
+				var d = 16 +  ( (instruction & 0x00f0) >> 4);
+				return apply2(_sbci,d,k);
+			}
+			case 0x5000: { //subi				
+				var k = ((instruction & 0x0f00) >> 4) | (instruction & 0x000f);
+				var d = 16 +  ( (instruction & 0x00f0) >> 4);
+				return apply2(_subi,d,k);
+			}
+			case 0x6000: { //ori 
+				var k = ((instruction & 0x0f00) >> 4) | (instruction & 0x000f);
+				var d = 16 +  ( (instruction & 0x00f0) >> 4);
+				return apply2(_ori,d,k);
+			}
+			case 0x7000: { //andi
+				var k = ((instruction & 0x0f00) >> 4) | (instruction & 0x000f);
+				var d = 16 +  ( (instruction & 0x00f0) >> 4);
+				return apply2(_andi,d,k);
+			}		
+			case 0x8000 | 0xa000: {  // ldd std
+				var q = (instruction & 0x0007) | ( (instruction & 0x0C00) >> 7) | ( (instruction  & 0x2000) >> 8 );
+				var d = (instruction & 0x01f0) >> 4;
+				var store = (instruction & 0x0200) != 0;
+				var useY = (instruction & 0x0008) != 0;
+				
+				if (store) {
+					if (useY) {
+						return apply2(_std_y,q,d);
+					} else {
+						return apply2(_std_z,q,d);
+					}
+				} else {
+					if (useY) {
+						return apply2(_ldd_y,d,q);
+					} else {
+						return apply2(_ldd_z,d,q);
+					}
+				}			
+			}
+			case 0xb000: { //in out
+				var a = (instruction & 0x000f) | ( (instruction & 0x0600) >> 5);
+				var d = (instruction & 0x01f0) >> 4;
+				if ( (instruction & 0x0800)==0) {
+					return apply2(_in,d,a);
+				} else {
+					return apply2(_out,a,d);
+				}
+			}
+			case 0xc000: { //rjmp
+				var k = (instruction & 0x0fff);
+				if (k > 2048) k -= 4096;
+				return apply2(_rjmp,k,0);				
+			}
+			case 0xd000: { //rcall
+				var k = (instruction & 0x0fff);
+				if (k > 2048) k -= 4096;
+				return apply2(_rcall,k,0);
+			}
+			case 0xe000: { //ldi
+				var k = ((instruction & 0x0f00) >> 4) | (instruction & 0x000f);
+				var d = 16 + ((instruction & 0x0f0) >> 4);
+				return apply2(_ldi,d,k);
+			}
+			case 0xf000: { // bld bst sbrc sbrs  +conditional branches 
+				var bit = 1 << (instruction & 0x0007);								
+				if ( (instruction & 0x0800) ==0 ) {
+					//it's a branch;				
+					var k = (instruction & 0x03f8) >> 3;
+					if (k > 63) k -= 128;						
+					if ((instruction & 0x0400) == 0) {
+						return apply2(_brbs,bit,k);
+					} else {
+						return apply2(_brbc,bit,k);
+					}
+				} else {
+					if ( (instruction & 0x0400) == 0) {
+						//bld bst
+						var d = (instruction & 0x01f0) >> 4;
+						if ((instruction & 0x0200) == 0) {
+							//traceInstruction('BLD r$d,${instruction & 0x0007}');				
+							return apply2(_bld,d,bit);
+						} else {
+							return apply2(_bst,d,bit);
+						}
+					}  else {
+						//sbrc sbrs
+						var d = (instruction & 0x01f0) >> 4;
+						if ((instruction & 0x0200) == 0) {
+							return apply2(_sbrc,d,bit);
+						} else {
+							return apply2(_sbrs,d,bit);
+						}					
+					}
+				}
+			}
+			case 0x9000: {
+				switch (instruction & 0xfe00) {
+					case 0x9000: { //lds   ld   lpm  elpm  pop
+						var d = (instruction & 0x01f0) >> 4;
+						switch (instruction & 0xfe0f) {
+							case 0x9000: {
+								return apply2(_lds,d,0);
+							}								
+							case 0x9001: {			
+								return apply2(_ld_z_p,d,0);		
+							}
+							case 0x9002: {								
+								return apply2(_ld_p_z,d,0);		
+							}
+							case 0x9003: {
+								return apply2(_not_an_instruction,0,0);
+							}
+							case 0x9004: {
+								return apply2(_lpm_z,d,0);		
+							}
+							case 0x9005: {
+								return apply2(_lpm_z_p,d,0);		
+							}
+							case 0x9006: {
+								return apply2(_elpm_z,d,0);		
+							}								
+							case 0x9007: {
+								return apply2(_elpm_z_p,d,0);		
+							}
+							case 0x9008: {
+								return apply2(_not_an_instruction,0,0);
+							}
+							case 0x9009: {								
+								return apply2(_ld_y_p,d,0);		
+							}
+							case 0x900A: {
+								return apply2(_ld_p_y,d,0);		
+							}
+							case 0x900B: {
+								return apply2(_not_an_instruction,0,0);
+							}
+							case 0x900C: {
+								return apply2(_ld_x,d,0);		
+							}
+							case 0x900D: {
+								return apply2(_ld_x_p,d,0);		
+							}
+							case 0x900E: {
+								return apply2(_ld_p_x,d,0);		
+							}
+							case 0x900F: {
+								return apply2(_pop,d,0);		
+							}
+						}
+					}
+					case 0x9200: { //sts st push
+						var d = (instruction & 0x01f0) >> 4;
+						switch (instruction & 0xfe0f) {
+							case 0x9200: {
+								return apply2(_sts,d,0);
+							}								
+							case 0x9201: {
+								return apply2(_st_z_p,d,0);
+							}
+							case 0x9202: {
+								return apply2(_st_p_z,d,0);
+							}
+							case 0x9209: {								
+								return apply2(_st_y_p,d,0);
+							}
+							case 0x920A: {
+								return apply2(_st_p_y,d,0);
+							}
+							case 0x920C: {
+								return apply2(_st_x,d,0);
+							}
+							case 0x920D: {
+								return apply2(_st_x_p,d,0);
+							}
+							case 0x920E: {
+								return apply2(_st_p_x,d,0);
+							}
+							case 0x920F: {
+								return apply2(_push,d,0);
+							}
+							default : {
+								return apply2(_not_an_instruction,0,0);
+							}
+ 
+						}
+						
+					}
+					case 0x9400: { 	// com neg swap inc asr lsr ror dec jmp call bset 
+									// ijmp eijmp bclr ret icall reti eicall sleep break 
+									// wdr   lpm R0,Z    elpm R0   spm
+						switch (instruction & 0xfe0f) {
+							case 0x9400: { //com 
+								var d = (instruction & 0x01f0) >> 4;
+								return apply2(_com,d,0);
+							}
+							case 0x9401: { //neg 
+								var d = (instruction & 0x01f0) >> 4;
+								return apply2(_neg,d,0);
+							}
+							case 0x9402: { //swap
+								var d = (instruction & 0x01f0) >> 4;
+								return apply2(_swap,d,0);
+							}
+							case 0x9403: { //inc
+								var d = (instruction & 0x01f0) >> 4;
+								return apply2(_inc,d,0);
+							}
+							case 0x9404: { // no instruction for this !?!
+								return apply2(_not_an_instruction,0,0);
+							}
+							case 0x9405: { //asr							
+								var d = (instruction & 0x01f0) >> 4;
+								return apply2(_asr,d,0);
+							}
+							case 0x9406: { //lsr
+								var d = (instruction & 0x01f0) >> 4;
+								return apply2(_lsr,d,0);
+							}
+							case 0x9407: { //ror
+								var d = (instruction & 0x01f0) >> 4;
+								return apply2(_ror,d,0);
+							}
+							case 0x9408: { // bset bclr ret reti sleep break  wdr   lpm R0,Z    elpm R0   spm
+								if ( (instruction & 0xff0f) == 0x9408 ) { // bset bclr
+									var bit = 1 << ( (instruction & 0x0030) >> 4);
+									if ( (instruction & 0x0040 == 0) ) {
+										return apply2(_bset, bit,0);
+									} else {
+										return apply2(_bclr, bit,0);
+									}								
+								} else switch (instruction) {
+									case 0x9508: { // ret
+										return apply2(_ret, 0,0);
+									}
+									case 0x9518: { // reti
+										return apply2(_reti, 0,0);
+									}
+									case 0x9588: { //sleep
+										return apply2(_sleep, 0,0);										
+									}
+									case 0x9598: { //break
+										return apply2(_break, 0,0);
+									}
+									case 0x95a8: { //wdr
+										return apply2(_wdr, 0,0);
+									}
+									case 0x95C8: { //lpm R0,Z
+										return apply2(_lpm_z, 0,0);
+									}
+									case 0x95d8: { //elpm R0
+										return apply2(_elpm_z, 0,0);
+									}
+									case 0x95e8: { // spm
+										return apply2(_spm_z, 0,0);
+										
+									}
+									case 0x95f8: { // spm Z+
+										return apply2(_spm_z_p, 0,0);
+									}
+									default: { 
+										return apply2(_not_an_instruction,0,0);
+									}
+								}
+							}
+							case 0x9409: { // ijmp eijmp icall eicall 
+								switch (instruction) {
+									case 0x9409: {  // ijmp
+										return apply2(_ijmp, 0,0);
+									}
+									case 0x9419: { //eijmp
+										return apply2(_eijmp, 0,0);
+									}
+									case 0x9509: { //icall
+										return apply2(_icall, 0,0);
+									}
+									case 0x9519: { //eicall
+										return apply2(_eicall, 0,0);
+									}
+									default: { 
+										return apply2(_not_an_instruction,0,0);
+									}
+								}
+							}
+							case 0x940A: { // dec
+								var d = (instruction & 0x01f0) >> 4;
+								return apply2(_dec, d,0);
+							}
+							case 0x940b: { // DES it seems
+								return apply2(_not_an_instruction,0,0);
+							}
+							case 0x940C | 0x940D: { //  jmp
+								var highBits = (instruction & 0x01f0) << 13 | (instruction & 1) << 16;
+								return apply2(_jmp, highBits,0);
+							}
+							case 0x940E | 0x940F: { //  call
+								var highBits = (instruction & 0x01f0) << 13 | (instruction & 1) << 16;
+								return apply2(_call, highBits,0);
+							}
+						}
+					}
+					case 0x9600: {  // addiw sbiw
+						var d = ((instruction & 0x0030) >> 3) + 24;
+						var k = ((instruction & 0x00C0) >> 2) | (instruction & 0x000f);
+						var sub = (instruction & 0x0100) == 0x0100;
+
+						if (sub) {
+							return apply2(_sbiw,d,k);
+						} else {
+							return apply2(_adiw,d,k);
+						}
+					}
+					case 0x9800: { // cbi sbic
+						return apply2(_no_bitio,0,0);
+					}
+					case 0x9a00: { // sbi sbis
+						return apply2(_no_bitio,0,0);
+
+					}
+					case 0x9c00 | 0x9e00: { // mul
+						var d = (instruction & 0x01f0) >> 4;
+						var r = (instruction & 0x0200) >> 5 | (instruction & 0x000f);
+						return apply2(_mul,d,r);
+					}
+				}
+			}
+			default: {
+				throw "shouldn't happen " + instruction;
+			}
+		}
+		
+		throw "shouldn't happen" + instruction;
+	}
+
+	public function compareExecutionModes() {
+		var initialState = new Uint8Array(65536);
+		initialState.set(ram);
+		var initialPC = PC;
+
+		exec();
+
+		var aState = new Uint8Array(65536);
+		aState.set(ram);
+		var aPC = PC;
+
+		ram.set(initialState);
+		PC=initialPC;
+
+		tableExec();
+
+		var bState = new Uint8Array(65536);
+		bState.set(ram);
+		var bPC = PC;
+
+		ram.set(initialState);
+		PC=initialPC;
+
+		if (aPC != bPC) {
+			trace("program counter different after instuction at "+hereString());
+			return;
+		}
+		for (i in 0...65535) {
+			if (aState[i] != bState[i] ) {
+				trace("memory different at "+i+" after instuction at "+hereString());
+				return;
+			}
+		}
+	}
+
+	public inline function tableExec() {
+		var ins=table[progMem[PC]];
+		untyped __js__('{0}.fn.call(this,{0}.a,{0}.b)',ins);
+		//ins.fn(ins.a,ins.b);
+
+	}
+
 	public function exec() {
 		var clocks = 1; //probably one clock
 		var nextPC = PC + 1; //probably one word
@@ -1069,9 +2166,18 @@ class AVR8
 	}
 	
 	public function tick(clockCycles : Int) {
+
+		/*
+		for (i in 0...50) {
+			compareExecutionModes();
+			exec();
+		}
+		return;
+		*/
 		var endTime = clockCycleCount + clockCycles;
 		for (i in 0...10000000) {		
-			exec();
+			tableExec();
+			//exec();
 			if (PC == breakPoint) break;
 			if (clockCycleCount > endTime) break;
 		}
@@ -1133,7 +2239,7 @@ class AVR8
 	public function disassemble(memLocation : UInt) : String {
 		function hex2(value) {	return "0x" + StringTools.hex(value, 2);	}
 		function hex4(value) {	return "0x" + StringTools.hex(value, 4);	}
-		
+		if (memLocation > progMem.length) return "_not_in_range_";
 		var instruction = progMem[memLocation];
 		var result : String = 'Unknown Instruction ${hex4(instruction)}';
 		
@@ -1245,7 +2351,7 @@ class AVR8
 				result='ANDI r$d,#$k';
 			}		
 			case 0x8000 | 0xa000: {  // ldd std
-				var q = (instruction & 0x0007) | ( (instruction & 0x0C) >> 7) | ( (instruction  & 0x2000) >> 8 );
+				var q = (instruction & 0x0007) | ( (instruction & 0x0C00) >> 7) | ( (instruction  & 0x2000) >> 8 );
 				var d = (instruction & 0x01f0) >> 4;
 				var store = (instruction & 0x0200) != 0;
 				var useY = (instruction & 0x0008) != 0;
@@ -1324,7 +2430,7 @@ class AVR8
 						switch (instruction & 0xfe0f) {
 							case 0x9000: {
 								var k = progMem[memLocation + 1];
-								result = 'LDS r$d,$k';
+								result = 'LDS r$d,${hex4(k)}';
 							}								
 							case 0x9001: {								
 								result = 'LD r$d,Z+';
@@ -1497,7 +2603,7 @@ class AVR8
 								result = 'JMP ${hex4(k*2)}';
 							}
 							case 0x940E | 0x940F: { //  call
-								var k = progMem[PC + 1];
+								var k = progMem[memLocation + 1];
 								k |= (instruction & 0x01f0) << 13 | (instruction & 1) << 16;
 								result = 'CALL ${hex4(k*2)}';
 							}

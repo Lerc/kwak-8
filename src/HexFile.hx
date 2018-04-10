@@ -7,13 +7,14 @@ import haxe.Int32;
  */
 using StringTools;
 
-typedef DataRange = {
+typedef Chunk = {
 	var address: Int32;
 	var data : Array<Int>;
 }
+
 class HexFile
 {
-  public var data : List <DataRange> = new List<DataRange>();
+  public var data : List <Chunk> = new List<Chunk>();
 	public var startAddress : Int32 = 0;
 	
 	public function new(code : String) 

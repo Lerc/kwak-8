@@ -1,4 +1,5 @@
 package ;
+import HexFile.Chunk;
 import haxe.Timer;
 import haxe.io.Bytes;
 import haxe.zip.Compress;
@@ -26,7 +27,6 @@ import js.html.Float32Array;
 
 using StringTools;
 
-
 /**
  * ...
  * @author Lerc
@@ -41,6 +41,7 @@ class EmulatortHost
 	var avr : AVR8;
 	
 	var halted(default,set) : Bool = true;
+	var muted(default,set) : Bool = false;
 	
 	var registerDiv = new Array<DivElement>();
 	var xDiv:DivElement;
@@ -61,6 +62,7 @@ class EmulatortHost
 	var clocksPerDisplayUpdate : Int = 0;
 	var runButton : ButtonElement;
 	var stepButton : ButtonElement;
+	var muteButton : ButtonElement;
 	
 	var breakpointInput : InputElement;
 	
@@ -93,7 +95,8 @@ class EmulatortHost
 		+ "(defun lin (a b) (moveto a) (lineto b) ) (tri '(100 70) '(50 180) '(150 180) 4)";
 
 	var selectedVoice : Voice;
-
+	var debugContext : Dynamic = null;
+	public var onUpdateDebugInfo: Dynamic -> Void = function (debug){};
 	public function new() 
 	{
 		untyped Browser.window.breakPoint = 0xffff00;
@@ -148,11 +151,18 @@ class EmulatortHost
 		
 		
 		for (i in 0...32) {
-			registerDiv[i] = makeDiv(registerBox,"register");
+			registerDiv[i] = makeDiv(registerBox,"register r"+i);
 		}
-		xDiv = makeDiv(registerBox, "register sys sp");
-		yDiv = makeDiv(registerBox, "register sys sp");
-		zDiv = makeDiv(registerBox, "register sys sp");
+		registerDiv[26].classList.add("x");
+		registerDiv[27].classList.add("x");
+		registerDiv[28].classList.add("y");
+		registerDiv[29].classList.add("y");
+		registerDiv[30].classList.add("z");
+		registerDiv[31].classList.add("z");
+		
+		xDiv = makeDiv(registerBox, "register sys sp x");
+		yDiv = makeDiv(registerBox, "register sys sp y");
+		zDiv = makeDiv(registerBox, "register sys sp z");
 		
 		spDiv =makeDiv(registerBox,"register sys sp");
 		pcDiv = makeDiv(registerBox, "register sys pc");
@@ -191,14 +201,19 @@ class EmulatortHost
 			}
 		});
 		
+		muteButton = Browser.document.createButtonElement();
+		muteButton.textContent="🔈"; 
+		muteButton.onclick= function() { muted= !muted; };
+		controlPanel.appendChild(muteButton);
+
 		logDiv = makeDiv(containerElement, "log");
 		logDiv.textContent = "Log\nStarted...\n ";
 		avr = new AVR8();
 		updateRegisterView();
 
 		runButton.onclick = function(e) { halted = !halted; e.preventDefault(); };
-		stepButton.onclick = function() { if (halted) avr.exec(); setDisassamblyView(avr.PC); updateRegisterView(); };
-		resetButton.onclick = function (){ reset(); }; 
+		stepButton.onclick = function() { if (halted) avr.exec(); updateDebugInfo(); };
+		resetButton.onclick = function (){ reset(); if (halted) {updateDebugInfo();} }; 
 		loadHexFile(testProgram);
 		
 		displayCanvas.addEventListener("drop", handleFileDrop);
@@ -226,20 +241,21 @@ class EmulatortHost
 			clockSpeedDiv.innerHTML = floatText(Math.round(clocksPassed / 500) / 1000) + "<small> MHz</small>";	
 		};
 
-		Browser.window.onkeydown = function (e : KeyboardEvent) {
+		Browser.window.addEventListener("keydown", function (e : KeyboardEvent) {
 			var code = e.keyCode;
 			if (e.key == "PageDown") {
 				magicPaste();
 				e.preventDefault();
 			}
 			rawKeymap[code] = true;
-		}
-		Browser.window.onkeyup = function (e : KeyboardEvent) {
+		});
+
+		Browser.window.addEventListener("keyup", function (e : KeyboardEvent) {
 			var code = e.keyCode;
 			rawKeymap[code] = false;
+		});
 
-		}
-		Browser.window.onkeypress = function (e : KeyboardEvent) {
+		Browser.window.addEventListener("keypress", function (e : KeyboardEvent) {
 			var code = e.keyCode;
 			if (code == 0) code = e.charCode;
 			
@@ -248,9 +264,9 @@ class EmulatortHost
 				keyBuffer.pop();
 			}
 			
-			if (e.keyCode == 0) e.preventDefault();
+			//if (e.keyCode == 0) e.preventDefault();
 
-		}
+		});
 		
 	  var hexURL = getQueryVariable("hex");
 		trace("hex url is : ", hexURL);
@@ -293,13 +309,25 @@ class EmulatortHost
 		}
 		
 	}
+	function set_muted(newValue : Bool) : Bool {
+		if (newValue != muted) {
+			muted = newValue;
+			muteButton.textContent = muted?"🔈":"🔇"; 
+			if (muted) {
+				audioGenerator.stop();
+			} else {
+				audioGenerator.start();	
+			}
+		}
+		return newValue;
+		
+	}
 	function set_halted(newValue : Bool) : Bool {
 		if (newValue != halted) {
 			halted = newValue;
 			runButton.textContent = halted?"Run":"Stop"; 
 			if (halted) {
-				setDisassamblyView(avr.PC);			
-				updateRegisterView();
+				updateDebugInfo();
 				flushLog();
 			} else {
 				displayCanvas.focus();
@@ -312,13 +340,19 @@ class EmulatortHost
 		tickCounter = (tickCounter + 1) & 0xff;		
 		var elapsed = time-lastFrameTimeStamp;
 		lastFrameTimeStamp = time;
+		//elapsed=160;
 		var clockCyclesToEmulate = Math.floor(8000 * elapsed);
 		if (clockCyclesToEmulate > 400000) clockCyclesToEmulate = 400000;
+		//if (clockCyclesToEmulate > 4000000) clockCyclesToEmulate = 4000000;
 
 		avr.breakPoint = untyped Browser.window.breakPoint / 2;
-
-		if (!halted) avr.tick(clockCyclesToEmulate);
 		
+		if (!halted) {
+			var start = Browser.window.performance.now(); 
+		 	avr.tick(clockCyclesToEmulate);
+			var finish = Browser.window.performance.now(); 
+			outputDiv.textContent = "time "+(finish-start);		
+		}
 		if (avr.PC == avr.breakPoint) {
 			halted = true;
 			
@@ -467,11 +501,15 @@ class EmulatortHost
 	public function setDisassamblyView(memLocation : UInt) {
 		var output = "";
 		memLocation = memLocation - 4;
-		for (i in 0...16) {
+		for (i in 0...21) {
+			var len = avr.instructionLength(avr.instructionAt(memLocation));
 			
-			output += '<div class="${memLocation==avr.PC?"PC":""}">'+  StringTools.hex(memLocation*2,4) +":\t"+ avr.disassemble(memLocation) +"</div>";
-			memLocation += avr.instructionLength(avr.instructionAt(memLocation));
-			
+			var asHex = "";
+			for (w in 0...len) {
+				asHex+=  StringTools.hex(avr.instructionAt(memLocation+w),4)+" ";
+			}
+			output += '<div class="${memLocation==avr.PC?"PC":""}"  tooltip="${asHex}">'+  StringTools.hex(memLocation*2,4) +":\t"+ avr.disassemble(memLocation) +"</div>";
+			memLocation += len;
 		}
 		disassemblyView.innerHTML = output;
 	}
@@ -518,6 +556,11 @@ class EmulatortHost
 		logDiv.textContent = avr.log;
 	}
 	
+	function updateDebugInfo() {
+		setDisassamblyView(avr.PC);
+		updateRegisterView();
+		onUpdateDebugInfo(debugContext);
+	}
 	
 	function renderMode0() {
 		
@@ -586,16 +629,19 @@ class EmulatortHost
 
 	function reset() {
 		avr.reset();
+		displayGenerator.clear();
 		magicPasteBufferindex = 0;
 		outputDiv.textContent = "[reset]";
-		trace("[reset]");
+		trace("[Hay! reset]");
 		logText = "Start of log:";		
-		compress();
+		//compress();
 	}
 	
-	function loadHexFile(text : String) {
-		avr.clearProgMem();
+	function loadHexFile(text : String,debugData : Dynamic=null) {
 		var hexFile = new HexFile(text);
+		loadCodeChunks(Lambda.array(hexFile.data),debugData);
+		/*
+		avr.clearProgMem();
 		var totalData = 0;
 		for (mem in hexFile.data) {
 			avr.writeProgMem(mem.address, mem.data);
@@ -605,7 +651,24 @@ class EmulatortHost
 		trace('loaded ${totalData} bytes from hex file');
 		reset();
 		halted = false;
+		*/
 	}
+	public function loadCodeChunks(chunks : Array<Chunk>,debugData : Dynamic=null) {
+		reset();
+		avr.clearProgMem();
+		debugContext=debugData;
+		var totalData = 0;
+		for (chunk in chunks) {
+			avr.writeProgMem(chunk.address,chunk.data);			
+			totalData += chunk.data.length;
+			//trace('loaded ${chunk.data.length} bytes at ${chunk.address}');
+
+		}
+		trace('loaded ${totalData} bytes in total');
+
+		halted = false;
+	}
+
 	function handleFileDrop(e : DragEvent) {
 		e.stopPropagation();
         e.preventDefault();
