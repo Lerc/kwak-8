@@ -3,12 +3,12 @@ Display is a 512x392 virtual FrameBuffer.
 The visible region is a window(480x360 or 240x180) into FrameBuffer
 
 Mode 0: is a mode using 3x3 pixel cells. Each cell is represented by a single
-				byte of pixel data and a single byte colour data.
-				each cell may use two of 16 colours.
+	byte of pixel data and a single byte colour data.
+	each cell may use two of 16 colours.
         
 Mode 1: is a tiled mode using 8x8 pixel cells, each cell using one of 16 four-color palettes.
-				each cell is two bytes, one byte for tile index, 4 bits for Palette selection,
-				a bit each for tile flipX and FlipY
+	each cell is two bytes, one byte for tile index, 4 bits for Palette selection,
+	a bit each for tile flipX and FlipY
 
 
 Adresses listed as +nn are offset of the previously specified register block.
@@ -94,34 +94,34 @@ blit_port_start = Display_port_start + 0x08   ;  this is the same port space as 
  
  voice_Freq_L	= +08
  voice_Freq_H	= +09			frequency is IntValue * 0.0596  
- voice_Volume = +0A
+ voice_Volume   = +0A
  voice_WaveShape = +0B   Low 4 bits Wave Base,  0000 square, 1000 = Sine, 1111 = Triangle.
- 												 												intermediate values interpolate.
-																								square and trianlge are scaled to have same area under curve as Sine
+ 		intermediate values interpolate.
+		square and trianlge are scaled to have same area under curve as Sine
 
- 												 High 4 Bits Wave shift. 1000 no shift, Applies a gamma curve in the time domain
+ 		High 4 Bits Wave shift. 1000 no shift, Applies a gamma curve in the time domain
 
  voice_BendWave = +0C		low 5 Bits Bend Duration	 ((intValue+1)/33)² * 30 Hz 
- 							   				high 3 bits Bend phase 0000=0 1000=Pi,   
+ 		high 3 bits Bend phase 0000=0 1000=Pi,   
 
  voice_BendAmplitude = +0D 
- 												Frequency shift of bend.  This scales the bendwave.
- 												value of 255 will occilate between 
-												 voice_freq - voice_freq/2
-												  and 
-												 voice_freq + voice_freq/2
+ 		Frequency shift of bend.  This scales the bendwave.
+ 		value of 255 will occilate between 
+		voice_freq - voice_freq/2
+		  and 
+		 voice_freq + voice_freq/2
  
  voice_NoiseHold = +0E low 4 bits Noise level,  High 4 bits HoldTime
-													Release starts at (intValue / 8)² Seconds
-													0000 is Immediate release
-													0001 is release after 1/64th of a second
-													1000 is release after 1 second
-													1111 is release after 3.51625 seconds
+		Release starts at (intValue / 8)² Seconds
+		0000 is Immediate release
+		0001 is release after 1/64th of a second
+		1000 is release after 1 second
+		1111 is release after 3.51625 seconds
  
  voice_AttackRelease = +0F  low 4 bits of attack, high 4 bits release. 
-												 	Duration for both is (intValue / 8)² Seconds
-													writing to the AttackRelease Register triggers the start of the
-													Attack,Hold,Release Cycle.
+		Duration for both is (intValue / 8)² Seconds
+		writing to the AttackRelease Register triggers the start of the
+		Attack,Hold,Release Cycle.
 
 
 
