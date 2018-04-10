@@ -30,7 +30,7 @@ class Audio
 	{
 		ctx = new AudioContext();
 		
-		sourceBuffer = ctx.createBuffer(2, 20480, 44100);
+		sourceBuffer = ctx.createBuffer(1, 20480, 44100);
 		
 		voices = [for (i in 0...8) new Voice()];
 
@@ -46,7 +46,7 @@ class Audio
 		source.loop=true;
 
 
-		scriptNode=ctx.createScriptProcessor(1024,2,2);
+		scriptNode=ctx.createScriptProcessor(1024,1,1);
 		trace("buffer size of script node is "+scriptNode.bufferSize);
 	    scriptNode.onaudioprocess=generateAudioData;
 
@@ -59,11 +59,11 @@ class Audio
 	}
 	
 	public function start() {
-		source.start();
+		ctx.suspend();
 	}
 	
 	public function stop() {
-		source.stop();
+		ctx.resume();
 	}
 
 	function stepForFrequency(freq : Float) : Float {
@@ -79,12 +79,12 @@ class Audio
 		var data = out.getChannelData(0);			
 		for (i in 0...data.length){
 			var voiceSample=0.0;
-			for (v in 0...4) { 	
+			for (v in 0...8) { 	
 				voiceSample+=voices[v].nextSample();
 			};
 			data[i] = voiceSample;
 		}
-
+/*
 		data = out.getChannelData(1);			
 		for (i in 0...data.length){
 			var voiceSample=0.0;
@@ -93,6 +93,6 @@ class Audio
 			};
 			data[i] = voiceSample;
 		}
-
+*/
 	}
 }
