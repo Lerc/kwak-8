@@ -147,10 +147,28 @@
 
     <div class="page architecture hidden">
     <section>
-      There are 3 basic forms of writing to the display device.
+      <p class="note">
+      This section gives you an overview of the capabilities.  For specific port numbers of the described capabilities, 
+      refer to <a href="https://github.com/Lerc/kwak-8/blob/master/IOMapping.txt">https://github.com/Lerc/kwak-8/blob/master/IOMapping.txt</a>
+      </p>
+
+      <h3>Display</h3>
+      <p>
+      The Kwak-8 has two display resolutions. Standard resolution is 240x180, hires mode is twice that at 480x360. 
+      Display frames are assembled in a write only-display buffer that is 512x392.
+      </p>
+      <p>
+          Writing 0x80 to port 0x40 places a portion of the buffer onscreemn in lowres mode;
+        </p>
+      <p>
+        Writing 0x81 to port 0x40 places a portion of the buffer onscreemn in hirres mode;
+      </p>
+      
+      
+      There are 3 basic forms of writing to the display .
 
       <ul>
-      <li> <h4>Display modes </h4>  These set all of the pixels on the output display reading
+      <li> <h3>Display modes </h3>  These set all of the pixels on the output buffer reading
       from RAM and hardware registers.  The translation method of data to pixels is dependent on the mode
       <li> <h4>Blitter.</h4> You can write rectangles of data to screen in pixel formats of 2,3,4,8 pixels per byte.
       	  Blits can be X-flipped, Y-Flipped, X-Doubled, Y-Doubled, and support color 0 transparency.
@@ -181,9 +199,90 @@
       	special effects</div>
       </div>
       </center>
+      <p>
+      An alternative method would be to simply host  a framebuffer in RAM and do a single 240x180 Blit to place it onscreen. At 2 bytes per pixel a
+      blit of 120 bytes wide and 180 high would fill the display but would also require a third of the RAM to hold the image. 
+    </p>
+    <p>
+      Choosing the right combination of display methods requires weighing up the pros and cons.  Displays that take up less RAM mean there will be
+      less data that needs to be manipulated, possibly making them faster, but they are also less flexible, which in turn might make them slower. 
+      Clever use within the constraints is where much of the lasting appeal of 8-bit development lies.            
+    </p>
 
-      Alternately a program might host a framebuffer in RAM and do a single 240x180 Blit to place it onscreen. At 2 bytes per pixel a
-      blit of 120 bytes wide and 180 high would fill the display but would also require a third of the RAM to hold the image.
+    <h3>Audio</h3>
+    <p>
+      There are 8 synth voices available on the Kwak-8.  
+      <ul>
+        Each voice has
+        <li>One of 256 basic waveforms</li>
+        <li>A frequency range of 0...3900Hz</li>
+        <li>Independant volume (256 levels) </li>
+        <li>Pitch bend/occilation</li>
+        <li>Random noise (16 levels)</li>
+        <li>An attack-hold-release envelope</li>        
+      </ul>
+      A single port write selects which voice to configure. 8 byte sized ports control the full parameters of the voice.
+      Writing to the Attack/Release port triggers a reset of the play envelope.  This is the last port of the voice
+      configuration so a sound can easily be triggered by choosing a voice then writing the configuration sequentially.
+      </p>
+      <p>
+        This asm example shows how simple it is to play a sound from 8 bytes of data stored in memory
+      <pre><code>
+  ldi r16,3         //play on voice 3
+  out voice_Select,r16
+  ldi XL, low(SoundData)  // SoundData holds the 8 bytes of the sound effect.
+  ldi XH, high(SoundData)
+  ld  r0,X+
+  out voice_Freq_L,r0
+  ld  r0,X+
+  out voice_Freq_H,r0
+  ld  r0,X+
+  out voice_Volume,r0
+  ld  r0,X+
+  out voice_WaveShape,r0
+  ld  r0,X+
+  out voice_BendWave,r0
+  ld  r0,X+
+  out voice_BendAmplitude,r0
+  ld  r0,X+
+  out voice_NoiseHold,r0
+  ld  r0,X+
+  out voice_AttackRelease,r0  //writing to this port triggers the Attack-hold-release cycle
+      </code></pre>
+    </p>
+    <h3>Input</h3>
+     <p>
+       The eight ports for input reside at the same port addresses as the display.  The display registers are write-only registers.
+       The input registers are read-only registers at the same location.
+
+     </p>
+      The Kwak-8 has 16 bits directly mapped to buttons.  These provide 
+      <ul>
+        <li>Up/Down/Left/Right cursor keys</li>
+        <li>WASD direction keys</li>
+        <li>Enter</li>
+        <li>SpaceBar</li>        
+        <li>BackSpace</li>        
+        <li>Esc</li>
+        <li>Ctrl</li>
+        <li>Shift</li>
+        <li>Z</li>
+        <li>X</li>        
+      </ul>
+      <p>
+      X and Y mouse coordinates are provided in a range of 0...255 measured in low-res pixels.    Mouse buttons map to the same bits as Z, X, and BackSpace
+    </p>
+      <p>
+        There are two 8-bit time inputs.  
+        <ul>
+          <li>A frame counter that increments with each video frame</li>
+          <li>A Second ticker that increments once per second</li>
+        </ul>
+      </p>
+      <p>
+        Finally, there is a console input.  This port reads from a buffer that can hold 10 ascii characters, the port returns zero when the buffer is empty
+      </p>
+
       </section>
     </div>
     
@@ -215,7 +314,8 @@
       <script src="https://gist-it.appspot.com/https://github.com/Lerc/kwak-8/blob/master/c/simple/minimal.c"></script>            
     </div>
     <div class="page emulator">
-      The Emulator
+      This is the Kwak-8 emulator.  You can choose an example from the option dropdown or drop a .hex file onto the emulator screen.
+
      
       <div class="emulator host">
 

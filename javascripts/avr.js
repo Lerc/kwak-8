@@ -27,30 +27,40 @@ var AVR8 = function() {
 	this.outPortFunctions = _g2;
 	this.log = "";
 	this.breakPoint = 65535;
+	var _g3 = [];
+	var _g12 = 0;
+	while(_g12 < 65535) {
+		var i2 = _g12++;
+		_g3.push(null);
+	}
+	this.table = _g3;
 	this.ram = new Uint8Array(65536);
 	this.ramSigned = new Int8Array(this.ram.buffer);
 	this.ramAsWords = new Uint16Array(this.ram.buffer);
 	this.progMem = new Uint16Array(65536);
 	this.progMemAsBytes = new Uint8Array(this.progMem.buffer);
+	var _g4 = 0;
+	while(_g4 < 65535) {
+		var i3 = _g4++;
+		this.table[i3] = this.instructionAsFunction(i3);
+	}
 };
 AVR8.__name__ = true;
 AVR8.prototype = {
 	clearRam: function() {
-		var _g = 0;
-		var _g1 = this.ram;
-		while(_g < _g1.length) {
-			var $byte = _g1[_g];
-			++_g;
-			$byte = 0;
+		var _g1 = 0;
+		var _g = this.ram.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.ram[i] = 0;
 		}
 	}
 	,clearProgMem: function() {
-		var _g = 0;
-		var _g1 = this.progMem;
-		while(_g < _g1.length) {
-			var word = _g1[_g];
-			++_g;
-			word = 0;
+		var _g1 = 0;
+		var _g = this.progMem.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.progMem[i] = 0;
 		}
 	}
 	,reset: function() {
@@ -205,6 +215,1194 @@ AVR8.prototype = {
 		}
 		return result;
 	}
+	,_nop: function(_,__) {
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_cpse: function(d,r) {
+		var skipLength = 0;
+		if(this.ram[d] == this.ram[r]) {
+			var instruction = this.progMem[this.PC + 1];
+			if((instruction & 63488) != 36864) {
+				skipLength = 1;
+			} else if((instruction & 64527) == 36864) {
+				skipLength = 2;
+			} else if((instruction & 64524) == 37900) {
+				skipLength = 2;
+			} else {
+				skipLength = 1;
+			}
+		}
+		this.clockCycleCount += 1 + skipLength;
+		this.PC += 1 + skipLength;
+	}
+	,_cp: function(d,r) {
+		this.sub(this.ram[d],this.ram[r]);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_sub: function(d,r) {
+		this.ram[d] = this.sub(this.ram[d],this.ram[r]);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_adc: function(d,r) {
+		this.ram[d] = this.add(this.ram[d],this.ram[r],this.ram[95] & 1);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_and: function(d,r) {
+		var result = this.ram[d] & this.ram[r];
+		this.ram[d] = result;
+		var _g = this;
+		_g.ram[95] &= -31;
+		if((result & 128) != 0) {
+			var _g1 = this;
+			_g1.ram[95] |= 20;
+		}
+		if(result == 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_eor: function(d,r) {
+		var result = this.ram[d] ^ this.ram[r];
+		this.ram[d] = result;
+		var _g = this;
+		_g.ram[95] &= -31;
+		if((result & 128) != 0) {
+			var _g1 = this;
+			_g1.ram[95] |= 20;
+		}
+		if(result == 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_or: function(d,r) {
+		var result = this.ram[d] | this.ram[r];
+		this.ram[d] = result;
+		var _g = this;
+		_g.ram[95] &= -31;
+		if((result & 128) != 0) {
+			var _g1 = this;
+			_g1.ram[95] |= 20;
+		}
+		if(result == 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_mov: function(d,r) {
+		this.ram[d] = this.ram[r];
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_movw: function(d,r) {
+		this.ramAsWords[d] = this.ramAsWords[r];
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_muls: function(d,r) {
+		var result = this.ramSigned[d] * this.ramSigned[r] & 65535;
+		this.ram[0] = result & 255;
+		this.ram[1] = (result & 65280) >> 8;
+		var _g = this;
+		_g.ram[95] &= -4;
+		if(result == 0) {
+			var _g1 = this;
+			_g1.ram[95] |= 2;
+		} else if((result & 32768) == 32768) {
+			var _g2 = this;
+			_g2.ram[95] |= 1;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 2;
+	}
+	,_cpc: function(d,r) {
+		this.sub_with_carry(this.ram[d],this.ram[r],this.ram[95] & 1);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_sbc: function(d,r) {
+		this.ram[d] = this.sub_with_carry(this.ram[d],this.ram[r],this.ram[95] & 1);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_add: function(d,r) {
+		this.ram[d] = this.add(this.ram[d],this.ram[r]);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_cpi: function(d,k) {
+		var _g = this;
+		_g.ram[95] |= 2;
+		this.sub(this.ram[d],k);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_sbci: function(d,k) {
+		this.ram[d] = this.sub_with_carry(this.ram[d],k,this.ram[95] & 1);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_subi: function(d,k) {
+		this.ram[d] = this.sub(this.ram[d],k);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_ori: function(d,k) {
+		this.ram[d] |= k;
+		var result = this.ram[d];
+		var _g = this;
+		_g.ram[95] &= -31;
+		if((result & 128) != 0) {
+			var _g1 = this;
+			_g1.ram[95] |= 20;
+		}
+		if(result == 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_andi: function(d,k) {
+		this.ram[d] &= k;
+		var result = this.ram[d];
+		var _g = this;
+		_g.ram[95] &= -31;
+		if((result & 128) != 0) {
+			var _g1 = this;
+			_g1.ram[95] |= 20;
+		}
+		if(result == 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_std_y: function(q,d) {
+		this.memStore(this.ram[28] + (this.ram[29] << 8) + q,this.ram[d]);
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_std_z: function(q,d) {
+		this.memStore(this.ram[30] + (this.ram[31] << 8) + q,this.ram[d]);
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_ldd_y: function(d,q) {
+		this.ram[d] = this.memLoad(this.ram[28] + (this.ram[29] << 8) + q);
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_ldd_z: function(d,q) {
+		this.ram[d] = this.memLoad(this.ram[30] + (this.ram[31] << 8) + q);
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_in: function(d,a) {
+		this.ram[d] = this.memLoad(a + 32);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_out: function(a,d) {
+		this.memStore(a + 32,this.ram[d]);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_rjmp: function(k,_) {
+		var nextPC = this.PC + k + 1;
+		this.clockCycleCount += 2;
+		this.PC = nextPC;
+	}
+	,_rcall: function(k,_) {
+		var nextPC = this.PC + k + 1;
+		var value = this.PC + 1;
+		var _g = this;
+		var _g1 = _g.ram[93] + (_g.ram[94] << 8);
+		var value1 = _g1 - 1;
+		_g.ram[93] = value1 & 255;
+		_g.ram[94] = value1 >> 8 & 255;
+		this.ram[_g1] = value & 255;
+		var _g2 = this;
+		var _g11 = _g2.ram[93] + (_g2.ram[94] << 8);
+		var value2 = _g11 - 1;
+		_g2.ram[93] = value2 & 255;
+		_g2.ram[94] = value2 >> 8 & 255;
+		this.ram[_g11] = value >> 8;
+		this.clockCycleCount += 3;
+		this.PC = nextPC;
+	}
+	,_ldi: function(d,k) {
+		this.ram[d] = k;
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_brbs: function(bit,k) {
+		if((this.ram[95] & bit) != 0) {
+			this.PC = this.PC + k + 1;
+			this.clockCycleCount += 2;
+		} else {
+			this.PC += 1;
+			this.clockCycleCount += 1;
+		}
+	}
+	,_brbc: function(bit,k) {
+		if((this.ram[95] & bit) == 0) {
+			this.PC = this.PC + k + 1;
+			this.clockCycleCount += 2;
+		} else {
+			this.PC += 1;
+			this.clockCycleCount += 1;
+		}
+	}
+	,_bld: function(d,bit) {
+		if((this.ram[95] & 64) != 0) {
+			this.ram[d] |= bit;
+		} else {
+			this.ram[d] &= ~bit;
+		}
+		this.PC += 1;
+		this.clockCycleCount += 1;
+	}
+	,_bst: function(d,bit) {
+		if((this.ram[d] & bit) != 0) {
+			var _g = this;
+			_g.ram[95] |= 2;
+		} else {
+			var _g1 = this;
+			_g1.ram[95] &= -3;
+		}
+		this.PC += 1;
+		this.clockCycleCount += 1;
+	}
+	,_sbrc: function(d,bit) {
+		if((this.ram[d] & bit) == 0) {
+			var instruction = this.progMem[this.PC + 1];
+			var skipLength = (instruction & 63488) != 36864 ? 1 : (instruction & 64527) == 36864 ? 2 : (instruction & 64524) == 37900 ? 2 : 1;
+			this.PC += 1 + skipLength;
+			this.clockCycleCount += 1 + skipLength;
+		} else {
+			this.clockCycleCount += 1;
+			this.PC += 1;
+		}
+	}
+	,_sbrs: function(d,bit) {
+		if((this.ram[d] & bit) != 0) {
+			var instruction = this.progMem[this.PC + 1];
+			var skipLength = (instruction & 63488) != 36864 ? 1 : (instruction & 64527) == 36864 ? 2 : (instruction & 64524) == 37900 ? 2 : 1;
+			this.PC += 1 + skipLength;
+			this.clockCycleCount += 1 + skipLength;
+		} else {
+			this.clockCycleCount += 1;
+			this.PC += 1;
+		}
+	}
+	,_lds: function(d,_) {
+		var k = this.progMem[this.PC + 1];
+		this.ram[d] = this.memLoad(k);
+		this.clockCycleCount += 2;
+		this.PC += 2;
+	}
+	,_ld_z_p: function(d,_) {
+		this.ram[d] = this.memLoad(this.ram[30] + (this.ram[31] << 8));
+		var _g = this;
+		var value = _g.ram[30] + (_g.ram[31] << 8) + 1;
+		_g.ram[30] = value & 255;
+		_g.ram[31] = value >> 8 & 255;
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_ld_p_z: function(d,_) {
+		var _g = this;
+		var value = _g.ram[30] + (_g.ram[31] << 8) - 1;
+		_g.ram[30] = value & 255;
+		_g.ram[31] = value >> 8 & 255;
+		this.ram[d] = this.memLoad(this.ram[30] + (this.ram[31] << 8));
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_lpm_z: function(d,_) {
+		this.ram[d] = this.progMemAsBytes[this.ram[30] + (this.ram[31] << 8)];
+		this.clockCycleCount += 3;
+		this.PC += 1;
+	}
+	,_lpm_z_p: function(d,_) {
+		this.ram[d] = this.progMemAsBytes[this.ram[30] + (this.ram[31] << 8)];
+		var _g = this;
+		var value = _g.ram[30] + (_g.ram[31] << 8) + 1;
+		_g.ram[30] = value & 255;
+		_g.ram[31] = value >> 8 & 255;
+		this.clockCycleCount += 3;
+		this.PC += 1;
+	}
+	,_elpm_z: function(d,_) {
+		this.ram[d] = this.progMemAsBytes[this.ram[91] << 16 | this.ram[30] + (this.ram[31] << 8)];
+		this.clockCycleCount += 3;
+		this.PC += 1;
+	}
+	,_elpm_z_p: function(d,_) {
+		this.ram[d] = this.progMemAsBytes[this.ram[91] << 16 | this.ram[30] + (this.ram[31] << 8)];
+		var _g = this;
+		var value = _g.ram[30] + (_g.ram[31] << 8) + 1;
+		_g.ram[30] = value & 255;
+		_g.ram[31] = value >> 8 & 255;
+		if(this.ram[30] + (this.ram[31] << 8) == 0) {
+			var _g1 = this;
+			_g1.ram[91] += 1;
+		}
+		this.clockCycleCount += 3;
+		this.PC += 1;
+	}
+	,_ld_y_p: function(d,_) {
+		this.ram[d] = this.memLoad(this.ram[28] + (this.ram[29] << 8));
+		var _g = this;
+		var value = _g.ram[28] + (_g.ram[29] << 8) + 1;
+		_g.ram[28] = value & 255;
+		_g.ram[29] = value >> 8 & 255;
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_ld_p_y: function(d,_) {
+		var _g = this;
+		var value = _g.ram[28] + (_g.ram[29] << 8) - 1;
+		_g.ram[28] = value & 255;
+		_g.ram[29] = value >> 8 & 255;
+		this.ram[d] = this.memLoad(this.ram[28] + (this.ram[29] << 8));
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_ld_x: function(d,_) {
+		this.ram[d] = this.memLoad(this.ram[26] + (this.ram[27] << 8));
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_ld_x_p: function(d,_) {
+		this.ram[d] = this.memLoad(this.ram[26] + (this.ram[27] << 8));
+		var _g = this;
+		var value = _g.ram[26] + (_g.ram[27] << 8) + 1;
+		_g.ram[26] = value & 255;
+		_g.ram[27] = value >> 8 & 255;
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_ld_p_x: function(d,_) {
+		var _g = this;
+		var value = _g.ram[26] + (_g.ram[27] << 8) - 1;
+		_g.ram[26] = value & 255;
+		_g.ram[27] = value >> 8 & 255;
+		this.ram[d] = this.memLoad(this.ram[26] + (this.ram[27] << 8));
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_pop: function(d,_) {
+		var _g = this;
+		var value = _g.ram[93] + (_g.ram[94] << 8) + 1;
+		_g.ram[93] = value & 255;
+		_g.ram[94] = value >> 8 & 255;
+		this.ram[d] = this.ram[this.ram[93] + (this.ram[94] << 8)];
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_sts: function(d,_) {
+		var k = this.progMem[this.PC + 1];
+		this.memStore(k,this.ram[d]);
+		this.clockCycleCount += 2;
+		this.PC += 2;
+	}
+	,_st_z_p: function(d,_) {
+		this.memStore(this.ram[30] + (this.ram[31] << 8),this.ram[d]);
+		var _g = this;
+		var value = _g.ram[30] + (_g.ram[31] << 8) + 1;
+		_g.ram[30] = value & 255;
+		_g.ram[31] = value >> 8 & 255;
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_st_p_z: function(d,_) {
+		var _g = this;
+		var value = _g.ram[30] + (_g.ram[31] << 8) - 1;
+		_g.ram[30] = value & 255;
+		_g.ram[31] = value >> 8 & 255;
+		this.memStore(this.ram[30] + (this.ram[31] << 8),this.ram[d]);
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_st_y_p: function(d,_) {
+		this.memStore(this.ram[28] + (this.ram[29] << 8),this.ram[d]);
+		var _g = this;
+		var value = _g.ram[28] + (_g.ram[29] << 8) + 1;
+		_g.ram[28] = value & 255;
+		_g.ram[29] = value >> 8 & 255;
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_st_p_y: function(d,_) {
+		var _g = this;
+		var value = _g.ram[28] + (_g.ram[29] << 8) - 1;
+		_g.ram[28] = value & 255;
+		_g.ram[29] = value >> 8 & 255;
+		this.memStore(this.ram[28] + (this.ram[29] << 8),this.ram[d]);
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_st_x: function(d,_) {
+		this.memStore(this.ram[26] + (this.ram[27] << 8),this.ram[d]);
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_st_x_p: function(d,_) {
+		this.memStore(this.ram[26] + (this.ram[27] << 8),this.ram[d]);
+		var _g = this;
+		var value = _g.ram[26] + (_g.ram[27] << 8) + 1;
+		_g.ram[26] = value & 255;
+		_g.ram[27] = value >> 8 & 255;
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_st_p_x: function(d,_) {
+		var _g = this;
+		var value = _g.ram[26] + (_g.ram[27] << 8) - 1;
+		_g.ram[26] = value & 255;
+		_g.ram[27] = value >> 8 & 255;
+		this.memStore(this.ram[26] + (this.ram[27] << 8),this.ram[d]);
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_push: function(d,_) {
+		this.ram[this.ram[93] + (this.ram[94] << 8)] = this.ram[d];
+		var _g = this;
+		var value = _g.ram[93] + (_g.ram[94] << 8) - 1;
+		_g.ram[93] = value & 255;
+		_g.ram[94] = value >> 8 & 255;
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_com: function(d,_) {
+		this.ram[d] = 255 - this.ram[d];
+		var _g = this;
+		_g.ram[95] &= -31;
+		var _g1 = this;
+		_g1.ram[95] |= 1;
+		if((this.ram[d] & 128) != 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 20;
+		}
+		if(this.ram[d] == 0) {
+			var _g3 = this;
+			_g3.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_neg: function(d,_) {
+		this.ram[d] = this.sub(0,this.ram[d]);
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_swap: function(d,_) {
+		var value = this.ram[d];
+		this.ram[d] = (value << 4 | value >> 4) & 255;
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_inc: function(d,_) {
+		var _g = this;
+		_g.ram[95] &= -31;
+		var v = this.ram[d] == 127;
+		var n = (this.ram[d] & 128) != 0;
+		this.ram[d] += 1;
+		if(v) {
+			var _g1 = this;
+			_g1.ram[95] |= 8;
+		}
+		if(n) {
+			var _g2 = this;
+			_g2.ram[95] |= 4;
+		}
+		if(v != n) {
+			var _g3 = this;
+			_g3.ram[95] |= 4;
+		}
+		if(this.ram[d] == 0) {
+			var _g4 = this;
+			_g4.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_asr: function(d,_) {
+		var value = this.ram[d];
+		var _g = this;
+		_g.ram[95] &= -32;
+		var carry = value & 1;
+		var _g1 = this;
+		_g1.ram[95] |= carry;
+		var topBit = value & 128;
+		var newValue = value >> 1 | topBit;
+		this.ram[d] = newValue;
+		if(newValue == 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 2;
+		}
+		var n = topBit != 0;
+		var b = carry != 0;
+		var v = n ? !b : b;
+		var s = n ? !v : v;
+		if(n) {
+			var _g3 = this;
+			_g3.ram[95] |= 4;
+		}
+		var v1 = v;
+		var s1 = s;
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_lsr: function(d,_) {
+		var value = this.ram[d];
+		var bit0 = value & 1;
+		var newValue = value >> 1;
+		this.ram[d] = newValue;
+		var _g = this;
+		_g.ram[95] &= -32;
+		if(bit0 != 0) {
+			var _g1 = this;
+			_g1.ram[95] |= 25;
+		}
+		if(newValue == 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_ror: function(d,_) {
+		var value = this.ram[d];
+		var carry = this.ram[95] & 1;
+		var bit0 = value & 1;
+		var newValue = value >> 1 | carry << 7;
+		this.ram[d] = newValue;
+		var _g = this;
+		_g.ram[95] &= -32;
+		if(bit0 != 0) {
+			var _g1 = this;
+			_g1.ram[95] |= 25;
+		}
+		if(newValue == 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_bset: function(bit,_) {
+		var _g = this;
+		_g.ram[95] |= bit;
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_bclr: function(bit,_) {
+		var _g = this;
+		_g.ram[95] &= ~bit;
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_ret: function(_,__) {
+		var _g = this;
+		var value = _g.ram[93] + (_g.ram[94] << 8) + 1;
+		_g.ram[93] = value & 255;
+		_g.ram[94] = value >> 8 & 255;
+		var tmp = this.ram[value & 65535] << 8;
+		var _g1 = this;
+		var value1 = _g1.ram[93] + (_g1.ram[94] << 8) + 1;
+		_g1.ram[93] = value1 & 255;
+		_g1.ram[94] = value1 >> 8 & 255;
+		this.PC = tmp + this.ram[value1 & 65535];
+		this.clockCycleCount += 4;
+	}
+	,_reti: function(_,__) {
+		var _g = this;
+		var value = _g.ram[93] + (_g.ram[94] << 8) + 1;
+		_g.ram[93] = value & 255;
+		_g.ram[94] = value >> 8 & 255;
+		var tmp = this.ram[value & 65535] << 8;
+		var _g1 = this;
+		var value1 = _g1.ram[93] + (_g1.ram[94] << 8) + 1;
+		_g1.ram[93] = value1 & 255;
+		_g1.ram[94] = value1 >> 8 & 255;
+		this.PC = tmp + this.ram[value1 & 65535];
+		var _g2 = this;
+		_g2.ram[95] |= 128;
+		this.clockCycleCount += 4;
+	}
+	,_ijmp: function(_,__) {
+		this.PC = this.ram[30] + (this.ram[31] << 8);
+		this.clockCycleCount += 2;
+	}
+	,_icall: function(_,__) {
+		var value = this.PC + 1;
+		var _g = this;
+		var _g1 = _g.ram[93] + (_g.ram[94] << 8);
+		var value1 = _g1 - 1;
+		_g.ram[93] = value1 & 255;
+		_g.ram[94] = value1 >> 8 & 255;
+		this.ram[_g1] = value & 255;
+		var _g2 = this;
+		var _g11 = _g2.ram[93] + (_g2.ram[94] << 8);
+		var value2 = _g11 - 1;
+		_g2.ram[93] = value2 & 255;
+		_g2.ram[94] = value2 >> 8 & 255;
+		this.ram[_g11] = value >> 8;
+		this.PC = this.ram[30] + (this.ram[31] << 8);
+		this.clockCycleCount += 3;
+	}
+	,_dec: function(d,_) {
+		var value = this.ram[d] - 1;
+		var v = value == 127;
+		var n = (value & 128) != 0;
+		this.ram[d] = value;
+		var _g = this;
+		_g.ram[95] &= -31;
+		if(v) {
+			var _g1 = this;
+			_g1.ram[95] |= 8;
+		}
+		if(n) {
+			var _g2 = this;
+			_g2.ram[95] |= 4;
+		}
+		if(n ? !v : v) {
+			var _g3 = this;
+			_g3.ram[95] |= 16;
+		}
+		if(value == 0) {
+			var _g4 = this;
+			_g4.ram[95] |= 2;
+		}
+		this.clockCycleCount += 1;
+		this.PC += 1;
+	}
+	,_jmp: function(highBits,_) {
+		var k = this.progMem[this.PC + 1];
+		k |= highBits;
+		this.clockCycleCount += 3;
+		this.PC = k;
+	}
+	,_call: function(highBits,_) {
+		var k = this.progMem[this.PC + 1];
+		k |= highBits;
+		var value = this.PC + 2;
+		var _g = this;
+		var _g1 = _g.ram[93] + (_g.ram[94] << 8);
+		var value1 = _g1 - 1;
+		_g.ram[93] = value1 & 255;
+		_g.ram[94] = value1 >> 8 & 255;
+		this.ram[_g1] = value & 255;
+		var _g2 = this;
+		var _g11 = _g2.ram[93] + (_g2.ram[94] << 8);
+		var value2 = _g11 - 1;
+		_g2.ram[93] = value2 & 255;
+		_g2.ram[94] = value2 >> 8 & 255;
+		this.ram[_g11] = value >> 8;
+		this.clockCycleCount += 4;
+		this.PC = k;
+	}
+	,_sbiw: function(d,k) {
+		var value = this.ram[d] + (this.ram[d + 1] << 8);
+		var _g = this;
+		_g.ram[95] &= -32;
+		var result;
+		var v;
+		var n;
+		var z;
+		var c;
+		var rdh7 = (this.ram[d + 1] & 128) != 0;
+		result = value - k;
+		n = (result & 32768) != 0;
+		if(!n) {
+			v = rdh7;
+		} else {
+			v = false;
+		}
+		z = (result & 65535) == 0;
+		if(n) {
+			c = !rdh7;
+		} else {
+			c = false;
+		}
+		if(n) {
+			var _g1 = this;
+			_g1.ram[95] |= 4;
+		}
+		if(v) {
+			var _g2 = this;
+			_g2.ram[95] |= 8;
+		}
+		if(n != v) {
+			var _g3 = this;
+			_g3.ram[95] |= 16;
+		}
+		if(z) {
+			var _g4 = this;
+			_g4.ram[95] |= 2;
+		}
+		if(c) {
+			var _g5 = this;
+			_g5.ram[95] |= 1;
+		}
+		this.ram[d] = result & 255;
+		this.ram[d + 1] = result >> 8 & 255;
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_adiw: function(d,k) {
+		var value = this.ram[d] + (this.ram[d + 1] << 8);
+		var _g = this;
+		_g.ram[95] &= -32;
+		var result;
+		var v;
+		var n;
+		var z;
+		var c;
+		var rdh7 = (this.ram[d + 1] & 128) != 0;
+		result = value + k;
+		n = (result & 32768) != 0;
+		if(n) {
+			v = !rdh7;
+		} else {
+			v = false;
+		}
+		z = (result & 65535) == 0;
+		if(!n) {
+			c = rdh7;
+		} else {
+			c = false;
+		}
+		if(n) {
+			var _g1 = this;
+			_g1.ram[95] |= 4;
+		}
+		if(v) {
+			var _g2 = this;
+			_g2.ram[95] |= 8;
+		}
+		if(n != v) {
+			var _g3 = this;
+			_g3.ram[95] |= 16;
+		}
+		if(z) {
+			var _g4 = this;
+			_g4.ram[95] |= 2;
+		}
+		if(c) {
+			var _g5 = this;
+			_g5.ram[95] |= 1;
+		}
+		this.ram[d] = result & 255;
+		this.ram[d + 1] = result >> 8 & 255;
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_mul: function(d,r) {
+		var product = this.ram[d] * this.ram[r];
+		this.ram[0] = product & 255;
+		this.ram[1] = product >> 8 & 255;
+		var _g = this;
+		_g.ram[95] &= -4;
+		if((product & 32768) != 0) {
+			var _g1 = this;
+			_g1.ram[95] |= 1;
+		}
+		if(product == 0) {
+			var _g2 = this;
+			_g2.ram[95] |= 2;
+		}
+		this.clockCycleCount += 2;
+		this.PC += 1;
+	}
+	,_fmuls: function(_,__) {
+		haxe_Log.trace("mulsu, fmul, fmuls, fmulsu unimplemented",{ fileName : "AVR8.hx", lineNumber : 960, className : "AVR8", methodName : "_fmuls"});
+	}
+	,_sleep: function(_,__) {
+	}
+	,_break: function(_,__) {
+	}
+	,_wdr: function(_,__) {
+	}
+	,_spm_z: function(_,__) {
+	}
+	,_spm_z_p: function(_,__) {
+	}
+	,_eijmp: function(_,__) {
+	}
+	,_eicall: function(_,__) {
+	}
+	,_no_bitio: function(_,__) {
+		haxe_Log.trace("cbi sbic sbi sbis unimplemented",{ fileName : "AVR8.hx", lineNumber : 992, className : "AVR8", methodName : "_no_bitio"});
+	}
+	,_not_an_instruction: function(a,b) {
+	}
+	,apply2: function(fn,a,b) {
+		var unbound = fn.method;
+		return { fn : unbound, a : a, b : b};
+	}
+	,instructionAsFunction: function(instruction) {
+		var _g = instruction & 61440;
+		switch(_g) {
+		case 0:
+			var _g1 = instruction & 3072;
+			switch(_g1) {
+			case 0:
+				var _g2 = instruction & 65280;
+				switch(_g2) {
+				case 0:
+					return this.apply2($bind(this,this._nop),0,0);
+				case 256:
+					var d = (instruction & 240) >> 4;
+					var r = instruction & 15;
+					return this.apply2($bind(this,this._movw),d,r);
+				case 512:
+					var d1 = 16 + (instruction & 240) >> 4;
+					var r1 = 16 + (instruction & 15);
+					return this.apply2($bind(this,this._muls),d1,r1);
+				case 768:
+					return this.apply2($bind(this,this._fmuls),0,0);
+				}
+				break;
+			case 1024:
+				var d2 = (instruction & 496) >> 4;
+				var r2 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._cpc),d2,r2);
+			case 2048:
+				var d3 = (instruction & 496) >> 4;
+				var r3 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._sbc),d3,r3);
+			case 3072:
+				var d4 = (instruction & 496) >> 4;
+				var r4 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._add),d4,r4);
+			}
+			throw new js__$Boot_HaxeError("shouldn't happen");
+			break;
+		case 4096:
+			var _g3 = instruction & 3072;
+			switch(_g3) {
+			case 0:
+				var d5 = (instruction & 496) >> 4;
+				var r5 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._cpse),d5,r5);
+			case 1024:
+				var d6 = (instruction & 496) >> 4;
+				var r6 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._cp),d6,r6);
+			case 2048:
+				var d7 = (instruction & 496) >> 4;
+				var r7 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._sub),d7,r7);
+			case 3072:
+				var d8 = (instruction & 496) >> 4;
+				var r8 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._adc),d8,r8);
+			}
+			break;
+		case 8192:
+			var _g4 = instruction & 3072;
+			switch(_g4) {
+			case 0:
+				var d9 = (instruction & 496) >> 4;
+				var r9 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._and),d9,r9);
+			case 1024:
+				var d10 = (instruction & 496) >> 4;
+				var r10 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._eor),d10,r10);
+			case 2048:
+				var d11 = (instruction & 496) >> 4;
+				var r11 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._or),d11,r11);
+			case 3072:
+				var d12 = (instruction & 496) >> 4;
+				var r12 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._mov),d12,r12);
+			}
+			break;
+		case 12288:
+			var k = (instruction & 3840) >> 4 | instruction & 15;
+			var d13 = 16 + ((instruction & 240) >> 4);
+			return this.apply2($bind(this,this._cpi),d13,k);
+		case 16384:
+			var k1 = (instruction & 3840) >> 4 | instruction & 15;
+			var d14 = 16 + ((instruction & 240) >> 4);
+			return this.apply2($bind(this,this._sbci),d14,k1);
+		case 20480:
+			var k2 = (instruction & 3840) >> 4 | instruction & 15;
+			var d15 = 16 + ((instruction & 240) >> 4);
+			return this.apply2($bind(this,this._subi),d15,k2);
+		case 24576:
+			var k3 = (instruction & 3840) >> 4 | instruction & 15;
+			var d16 = 16 + ((instruction & 240) >> 4);
+			return this.apply2($bind(this,this._ori),d16,k3);
+		case 28672:
+			var k4 = (instruction & 3840) >> 4 | instruction & 15;
+			var d17 = 16 + ((instruction & 240) >> 4);
+			return this.apply2($bind(this,this._andi),d17,k4);
+		case 36864:
+			var _g5 = instruction & 65024;
+			switch(_g5) {
+			case 36864:
+				var d18 = (instruction & 496) >> 4;
+				var _g6 = instruction & 65039;
+				switch(_g6) {
+				case 36864:
+					return this.apply2($bind(this,this._lds),d18,0);
+				case 36865:
+					return this.apply2($bind(this,this._ld_z_p),d18,0);
+				case 36866:
+					return this.apply2($bind(this,this._ld_p_z),d18,0);
+				case 36867:
+					return this.apply2($bind(this,this._not_an_instruction),0,0);
+				case 36868:
+					return this.apply2($bind(this,this._lpm_z),d18,0);
+				case 36869:
+					return this.apply2($bind(this,this._lpm_z_p),d18,0);
+				case 36870:
+					return this.apply2($bind(this,this._elpm_z),d18,0);
+				case 36871:
+					return this.apply2($bind(this,this._elpm_z_p),d18,0);
+				case 36872:
+					return this.apply2($bind(this,this._not_an_instruction),0,0);
+				case 36873:
+					return this.apply2($bind(this,this._ld_y_p),d18,0);
+				case 36874:
+					return this.apply2($bind(this,this._ld_p_y),d18,0);
+				case 36875:
+					return this.apply2($bind(this,this._not_an_instruction),0,0);
+				case 36876:
+					return this.apply2($bind(this,this._ld_x),d18,0);
+				case 36877:
+					return this.apply2($bind(this,this._ld_x_p),d18,0);
+				case 36878:
+					return this.apply2($bind(this,this._ld_p_x),d18,0);
+				case 36879:
+					return this.apply2($bind(this,this._pop),d18,0);
+				}
+				break;
+			case 37376:
+				var d19 = (instruction & 496) >> 4;
+				var _g7 = instruction & 65039;
+				switch(_g7) {
+				case 37376:
+					return this.apply2($bind(this,this._sts),d19,0);
+				case 37377:
+					return this.apply2($bind(this,this._st_z_p),d19,0);
+				case 37378:
+					return this.apply2($bind(this,this._st_p_z),d19,0);
+				case 37385:
+					return this.apply2($bind(this,this._st_y_p),d19,0);
+				case 37386:
+					return this.apply2($bind(this,this._st_p_y),d19,0);
+				case 37388:
+					return this.apply2($bind(this,this._st_x),d19,0);
+				case 37389:
+					return this.apply2($bind(this,this._st_x_p),d19,0);
+				case 37390:
+					return this.apply2($bind(this,this._st_p_x),d19,0);
+				case 37391:
+					return this.apply2($bind(this,this._push),d19,0);
+				default:
+					return this.apply2($bind(this,this._not_an_instruction),0,0);
+				}
+				break;
+			case 37888:
+				var _g8 = instruction & 65039;
+				switch(_g8) {
+				case 37888:
+					var d20 = (instruction & 496) >> 4;
+					return this.apply2($bind(this,this._com),d20,0);
+				case 37889:
+					var d21 = (instruction & 496) >> 4;
+					return this.apply2($bind(this,this._neg),d21,0);
+				case 37890:
+					var d22 = (instruction & 496) >> 4;
+					return this.apply2($bind(this,this._swap),d22,0);
+				case 37891:
+					var d23 = (instruction & 496) >> 4;
+					return this.apply2($bind(this,this._inc),d23,0);
+				case 37892:
+					return this.apply2($bind(this,this._not_an_instruction),0,0);
+				case 37893:
+					var d24 = (instruction & 496) >> 4;
+					return this.apply2($bind(this,this._asr),d24,0);
+				case 37894:
+					var d25 = (instruction & 496) >> 4;
+					return this.apply2($bind(this,this._lsr),d25,0);
+				case 37895:
+					var d26 = (instruction & 496) >> 4;
+					return this.apply2($bind(this,this._ror),d26,0);
+				case 37896:
+					if((instruction & 65295) == 37896) {
+						var bit = 1 << ((instruction & 48) >> 4);
+						if((instruction & 64) == 0) {
+							return this.apply2($bind(this,this._bset),bit,0);
+						} else {
+							return this.apply2($bind(this,this._bclr),bit,0);
+						}
+					} else {
+						switch(instruction) {
+						case 38152:
+							return this.apply2($bind(this,this._ret),0,0);
+						case 38168:
+							return this.apply2($bind(this,this._reti),0,0);
+						case 38280:
+							return this.apply2($bind(this,this._sleep),0,0);
+						case 38296:
+							return this.apply2($bind(this,this._break),0,0);
+						case 38312:
+							return this.apply2($bind(this,this._wdr),0,0);
+						case 38344:
+							return this.apply2($bind(this,this._lpm_z),0,0);
+						case 38360:
+							return this.apply2($bind(this,this._elpm_z),0,0);
+						case 38376:
+							return this.apply2($bind(this,this._spm_z),0,0);
+						case 38392:
+							return this.apply2($bind(this,this._spm_z_p),0,0);
+						default:
+							return this.apply2($bind(this,this._not_an_instruction),0,0);
+						}
+					}
+					break;
+				case 37897:
+					switch(instruction) {
+					case 37897:
+						return this.apply2($bind(this,this._ijmp),0,0);
+					case 37913:
+						return this.apply2($bind(this,this._eijmp),0,0);
+					case 38153:
+						return this.apply2($bind(this,this._icall),0,0);
+					case 38169:
+						return this.apply2($bind(this,this._eicall),0,0);
+					default:
+						return this.apply2($bind(this,this._not_an_instruction),0,0);
+					}
+					break;
+				case 37898:
+					var d27 = (instruction & 496) >> 4;
+					return this.apply2($bind(this,this._dec),d27,0);
+				case 37899:
+					return this.apply2($bind(this,this._not_an_instruction),0,0);
+				case 37900:case 37901:
+					var highBits = (instruction & 496) << 13 | (instruction & 1) << 16;
+					return this.apply2($bind(this,this._jmp),highBits,0);
+				case 37902:case 37903:
+					var highBits1 = (instruction & 496) << 13 | (instruction & 1) << 16;
+					return this.apply2($bind(this,this._call),highBits1,0);
+				}
+				break;
+			case 38400:
+				var d28 = ((instruction & 48) >> 3) + 24;
+				var k5 = (instruction & 192) >> 2 | instruction & 15;
+				var sub = (instruction & 256) == 256;
+				if(sub) {
+					return this.apply2($bind(this,this._sbiw),d28,k5);
+				} else {
+					return this.apply2($bind(this,this._adiw),d28,k5);
+				}
+				break;
+			case 38912:
+				return this.apply2($bind(this,this._no_bitio),0,0);
+			case 39424:
+				return this.apply2($bind(this,this._no_bitio),0,0);
+			case 39936:case 40448:
+				var d29 = (instruction & 496) >> 4;
+				var r13 = (instruction & 512) >> 5 | instruction & 15;
+				return this.apply2($bind(this,this._mul),d29,r13);
+			}
+			break;
+		case 32768:case 40960:
+			var q = instruction & 7 | (instruction & 3072) >> 7 | (instruction & 8192) >> 8;
+			var d30 = (instruction & 496) >> 4;
+			var store = (instruction & 512) != 0;
+			var useY = (instruction & 8) != 0;
+			if(store) {
+				if(useY) {
+					return this.apply2($bind(this,this._std_y),q,d30);
+				} else {
+					return this.apply2($bind(this,this._std_z),q,d30);
+				}
+			} else if(useY) {
+				return this.apply2($bind(this,this._ldd_y),d30,q);
+			} else {
+				return this.apply2($bind(this,this._ldd_z),d30,q);
+			}
+			break;
+		case 45056:
+			var a = instruction & 15 | (instruction & 1536) >> 5;
+			var d31 = (instruction & 496) >> 4;
+			if((instruction & 2048) == 0) {
+				return this.apply2($bind(this,this._in),d31,a);
+			} else {
+				return this.apply2($bind(this,this._out),a,d31);
+			}
+			break;
+		case 49152:
+			var k6 = instruction & 4095;
+			if(k6 > 2048) {
+				k6 -= 4096;
+			}
+			return this.apply2($bind(this,this._rjmp),k6,0);
+		case 53248:
+			var k7 = instruction & 4095;
+			if(k7 > 2048) {
+				k7 -= 4096;
+			}
+			return this.apply2($bind(this,this._rcall),k7,0);
+		case 57344:
+			var k8 = (instruction & 3840) >> 4 | instruction & 15;
+			var d32 = 16 + ((instruction & 240) >> 4);
+			return this.apply2($bind(this,this._ldi),d32,k8);
+		case 61440:
+			var bit1 = 1 << (instruction & 7);
+			if((instruction & 2048) == 0) {
+				var k9 = (instruction & 1016) >> 3;
+				if(k9 > 63) {
+					k9 -= 128;
+				}
+				if((instruction & 1024) == 0) {
+					return this.apply2($bind(this,this._brbs),bit1,k9);
+				} else {
+					return this.apply2($bind(this,this._brbc),bit1,k9);
+				}
+			} else if((instruction & 1024) == 0) {
+				var d33 = (instruction & 496) >> 4;
+				if((instruction & 512) == 0) {
+					return this.apply2($bind(this,this._bld),d33,bit1);
+				} else {
+					return this.apply2($bind(this,this._bst),d33,bit1);
+				}
+			} else {
+				var d34 = (instruction & 496) >> 4;
+				if((instruction & 512) == 0) {
+					return this.apply2($bind(this,this._sbrc),d34,bit1);
+				} else {
+					return this.apply2($bind(this,this._sbrs),d34,bit1);
+				}
+			}
+			break;
+		default:
+			throw new js__$Boot_HaxeError("shouldn't happen " + instruction);
+		}
+		throw new js__$Boot_HaxeError("shouldn't happen" + instruction);
+	}
 	,exec: function() {
 		var clocks = 1;
 		var nextPC = this.PC + 1;
@@ -242,7 +1440,7 @@ AVR8.prototype = {
 					clocks = 2;
 					break;
 				case 768:
-					haxe_Log.trace("mulsu, fmul, fmuls, fmulsu unimplemented",{ fileName : "AVR8.hx", lineNumber : 414, className : "AVR8", methodName : "exec"});
+					haxe_Log.trace("mulsu, fmul, fmuls, fmulsu unimplemented",{ fileName : "AVR8.hx", lineNumber : 1511, className : "AVR8", methodName : "exec"});
 					break;
 				}
 				break;
@@ -890,10 +2088,10 @@ AVR8.prototype = {
 				this.ram[d28 + 1] = result6 >> 8 & 255;
 				break;
 			case 38912:
-				haxe_Log.trace("cbi sbic unimplemented",{ fileName : "AVR8.hx", lineNumber : 1005, className : "AVR8", methodName : "exec"});
+				haxe_Log.trace("cbi sbic unimplemented",{ fileName : "AVR8.hx", lineNumber : 2102, className : "AVR8", methodName : "exec"});
 				break;
 			case 39424:
-				haxe_Log.trace("sbi sbis unimplemented",{ fileName : "AVR8.hx", lineNumber : 1008, className : "AVR8", methodName : "exec"});
+				haxe_Log.trace("sbi sbis unimplemented",{ fileName : "AVR8.hx", lineNumber : 2105, className : "AVR8", methodName : "exec"});
 				break;
 			case 39936:case 40448:
 				var d29 = (instruction & 496) >> 4;
@@ -1027,7 +2225,8 @@ AVR8.prototype = {
 		var _g = 0;
 		while(_g < 10000000) {
 			var i = _g++;
-			this.exec();
+			var ins = this.table[this.progMem[this.PC]];
+			ins.fn.call(this,ins.a,ins.b);
 			if(this.PC == this.breakPoint) {
 				break;
 			}
@@ -1043,6 +2242,9 @@ AVR8.prototype = {
 		var hex4 = function(value1) {
 			return "0x" + StringTools.hex(value1,4);
 		};
+		if(_$UInt_UInt_$Impl_$.gt(memLocation,this.progMem.length)) {
+			return "_not_in_range_";
+		}
 		var instruction = this.progMem[memLocation];
 		var result = "Unknown Instruction " + hex4(instruction);
 		var _g = instruction & 61440;
@@ -1166,7 +2368,7 @@ AVR8.prototype = {
 				switch(_g6) {
 				case 36864:
 					var k5 = this.progMem[memLocation + 1];
-					result = "LDS r" + d15 + "," + k5;
+					result = "LDS r" + d15 + "," + hex4(k5);
 					break;
 				case 36865:
 					result = "LD r" + d15 + ",Z+";
@@ -1340,7 +2542,7 @@ AVR8.prototype = {
 					result = "JMP " + hex4(k7 * 2);
 					break;
 				case 37902:case 37903:
-					var k8 = this.progMem[this.PC + 1];
+					var k8 = this.progMem[memLocation + 1];
 					k8 |= (instruction & 496) << 13 | (instruction & 1) << 16;
 					result = "CALL " + hex4(k8 * 2);
 					break;
@@ -1366,7 +2568,7 @@ AVR8.prototype = {
 			}
 			break;
 		case 32768:case 40960:
-			var q = instruction & 7 | (instruction & 12) >> 7 | (instruction & 8192) >> 8;
+			var q = instruction & 7 | (instruction & 3072) >> 7 | (instruction & 8192) >> 8;
 			var d27 = (instruction & 496) >> 4;
 			var store = (instruction & 512) != 0;
 			var useY = (instruction & 8) != 0;
@@ -1445,7 +2647,7 @@ Math.__name__ = true;
 var Audio = function() {
 	this.waveForm = Audio.sine;
 	this.ctx = new AudioContext();
-	this.sourceBuffer = this.ctx.createBuffer(2,20480,44100);
+	this.sourceBuffer = this.ctx.createBuffer(1,20480,44100);
 	var _g = [];
 	var _g1 = 0;
 	while(_g1 < 8) {
@@ -1468,7 +2670,7 @@ var Audio = function() {
 	this.source = this.ctx.createBufferSource();
 	this.source.buffer = this.sourceBuffer;
 	this.source.loop = true;
-	this.scriptNode = this.ctx.createScriptProcessor(1024,2,2);
+	this.scriptNode = this.ctx.createScriptProcessor(1024,1,1);
 	haxe_Log.trace("buffer size of script node is " + this.scriptNode.bufferSize,{ fileName : "Audio.hx", lineNumber : 50, className : "Audio", methodName : "new"});
 	this.scriptNode.onaudioprocess = $bind(this,this.generateAudioData);
 	this.source.connect(this.scriptNode);
@@ -1487,7 +2689,10 @@ Audio.square = function(x) {
 };
 Audio.prototype = {
 	start: function() {
-		this.source.start();
+		this.ctx.resume();
+	}
+	,stop: function() {
+		this.ctx.suspend();
 	}
 	,stepForFrequency: function(freq) {
 		return 2 * Math.PI * freq / this.sourceBuffer.sampleRate;
@@ -1508,30 +2713,17 @@ Audio.prototype = {
 			var i = _g11++;
 			var voiceSample = 0.0;
 			var _g21 = 0;
-			while(_g21 < 4) {
+			while(_g21 < 8) {
 				var v1 = _g21++;
 				voiceSample += this.voices[v1].nextSample();
 			}
 			data[i] = voiceSample;
 		}
-		data = out.getChannelData(1);
-		var _g12 = 0;
-		var _g3 = data.length;
-		while(_g12 < _g3) {
-			var i1 = _g12++;
-			var voiceSample1 = 0.0;
-			var _g22 = 4;
-			while(_g22 < 8) {
-				var v2 = _g22++;
-				voiceSample1 += this.voices[v2].nextSample();
-			}
-			data[i1] = voiceSample1;
-		}
 	}
 	,__class__: Audio
 };
 var Display = function(frameBuffer) {
-	this.palette = new Uint32Array([-16777216,-6447715,-1,-13424962,-7639072,-13943735,-14523228,-13530645,-9706761,-11646929,-15038140,-14168413,-13490661,-8104192,-875983,-1057614,-15658735,-14540254,-13421773,-12303292,-11184811,-10066330,-8947849,-7829368,-5921371,-4276546,-3618616,-2960686,-2302756,-1644826,-986896,-328966,-63746,-4518182,-8124228,-11140719,-12189352,-14876644,-15138816,-16771584,-16763391,-16747437,-12942464,-11103317,-10318108,-6788405,-150017,-100353,-125053,-129851,-5700705,-8912799,-14548911,-16775627,-16777190,-14800336,-16766943,-16755910,-16750222,-14192749,-7890689,-4806657,-3372034,-4043265,-523258,-5962980,-5232025,-4435811,-10402406,-12898701,-14210748,-12892584,-13811665,-14004914,-16174271,-16758159,-9470517,-9805626,-7511297,-7666437,-112347,-42097,-37179,-4233279,-7317594,-10799252,-11515548,-12432822,-12230585,-12752282,-13017488,-15584167,-13613411,-13565024,-10417711,-10616321,-431615,-33678,-90975,-25390,-3764282,-9086853,-9147523,-10787729,-10589080,-10782077,-11112050,-12888964,-16776860,-12430135,-13236778,-11382529,-10616819,-4105875,-3180396,-7781256,-6462081,-6325096,-10594470,-8883602,-8616064,-8880503,-10129250,-14010514,-16764287,-16711273,-16708405,-16316417,-4763643,-7655423,-7780786,-10475717,-12638912,-8758690,-8888757,-7178635,-6779763,-7699295,-8820322,-11447161,-12687957,-16756326,-16625194,-13474305,-30160,-5279136,-12577792,-11060687,-12437439,-11450565,-7571629,-4485504,-4088923,-4479026,-7042610,-8548686,-11501133,-16684609,-14709796,-16745985,-21634,-5740031,-9878272,-12769792,-13883099,-10198448,-5598609,-3953503,-409413,-11285,-1978369,-6116904,-8805170,-10244865,-16743500,-16602113,-88569,-4094208,-8494078,-11253758,-13816300,-9669037,-7434650,-3164280,-11095,-5667,-4097,-3155713,-5975809,-8734258,-9711873,-15092531,-14076,-3693528,-6979066,-10198259,-12826624,-11112445,-9007262,-6250864,-70205,-3031867,-3026992,-2626561,-5117185,-6684674,-16739683,-16589826,-6290,-2834175,-5923327,-8616446,-13871615,-11302399,-7621774,-6247544,-3487058,-5856334,-5522220,-5058604,-7678261,-11293787,-14953028,-14811396,-74,-3615341,-5194694,-8019710,-10310656,-16226042,-5710957,-1900603,-524313,-5918798,-8547423,-7555164,-10901642,-16739480,-16468350,-13959243,-766,-2097312,-5647356,-5374161,-8989915,-6881371,-9646190,-3801116,-1703937,-4204094,-9661561,-11959457,-15759343,-15947495,-16396248,-13631693]);
+	this.palette = new Uint32Array([-16777216,-6447715,-1,-13424962,-7639072,-13943735,-14523228,-13530645,-9706761,-11646929,-15038140,-14168413,-13490661,-8104192,-875983,-1057614,-14606047,-13224394,-12040120,-10987432,-10000537,-9013642,-8158333,-7303024,-5658199,-4934476,-4144960,-3421237,-2697514,-2039584,-1315861,-657931,-293888,-3117755,-5951232,-7340024,-2223335,-65536,-372992,-34414,-24923,-22659,-9159620,-10799104,-13565943,-12247245,-14352329,-14286756,-10215936,-5550258,-2923915,-5372831,-1099659,-45404,-36919,-25640,-3706723,-2783117,-6722975,-11189702,-15072768,-15007719,-13490873,-16777137,-10813384,-8967077,-5813124,-4194148,-2424627,-65281,-822017,-741377,-3106386,-5209723,-7708809,-10797486,-13227728,-16777190,-16515026,-16769432,-11657124,-9223815,-6533979,-8388469,-7012132,-4828417,-3973941,-3700787,-8758379,-6981996,-9545636,-12172715,-14933189,-16772063,-16768191,-16763028,-16776961,-12442369,-11337499,-8321281,-11796345,-9686613,-4486404,-6788164,-11386763,-11644297,-10327168,-12758960,-12826318,-14601425,-16767184,-16762029,-16033025,-16759097,-16711511,-10129665,-15335293,-12975969,-9415491,-11515494,-13816477,-14009249,-12297878,-12687765,-12951991,-15580866,-16768753,-15788544,-16734721,-16750895,-16761960,-10121729,-12361260,-6778881,-9999929,-12101208,-13746810,-12953724,-14788745,-16755619,-16755921,-16631296,-14274816,-13555200,-16745534,-16749677,-10968875,-9130497,-10911030,-8352567,-7437643,-9737829,-10324573,-11767925,-12747895,-14717355,-15896832,-14001920,-11443411,-11185152,-14177841,-16742483,-9451777,-6898206,-5586433,-5460510,-4612150,-6579533,-8217664,-11172435,-11371154,-12019333,-9726874,-11897027,-9600744,-6183168,-16725505,-13331301,-12208198,-5381121,-3153159,-2902858,-5663842,-8225390,-9009512,-8805449,-8736352,-6432072,-7686789,-8346602,-5650432,-2491392,-16711681,-16743823,-8327214,-4325377,-3679538,-3097688,-4941428,-7834505,-10192257,-9989486,-7418928,-2555933,-2097231,-3090312,-266187,-256,-16711761,-16732052,-6357078,-4128832,-4598875,-3426177,-5598356,-7505561,-10720159,-8680322,-5586229,-1967361,-28,-131147,-5781,-3161600,-16723943,-13194752,-9911168,-5578126,-5721220,-6122180,-7111620,-9347507,-8290201,-6771550,-5195054,-2565377,-4097,-7720,-13312,-2972160,-16711936,-9049344,-8928512,-11628288,-7892641,-8686080,-8953344,-10001076,-6381947,-4144471,-3292970,-2901761,-10241,-16169,-13943,-5016320]);
 	var this1 = new Uint8Array(64);
 	this.smallPalette = this1;
 	this.serialPixelAddress = 0;
@@ -1550,7 +2742,15 @@ var Display = function(frameBuffer) {
 };
 Display.__name__ = true;
 Display.prototype = {
-	renderMode0: function(avr) {
+	clear: function() {
+		var _g1 = 0;
+		var _g = this.pixelData.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			this.pixelData[i] = -16777200;
+		}
+	}
+	,renderMode0: function(avr) {
 		var pixelData_displayStart = this.modeData[0] + (this.modeData[1] << 8);
 		var colorData_displayStart = this.modeData[2] + (this.modeData[3] << 8);
 		var pixelData_increment = this.modeData[4];
@@ -1874,6 +3074,9 @@ EReg.prototype = {
 	,__class__: EReg
 };
 var EmulatortHost = function() {
+	this.onUpdateDebugInfo = function(debug) {
+	};
+	this.debugContext = null;
 	this.magicPasteBuffer = "(defun mid (a b) (if (and (listp a) (listp b)) (mapcar mid a b) (/ (+ a b) 2)))" + "(defun tri (a b c d) (if (> d 1) (progn (tri (mid a b) (mid b c) (mid a b) (- d 1)) (tri a (mid a b) (mid a c) (- d 1) ) (tri b (mid b a) (mid b c) (- d 1) ) (tri c (mid c a) (mid c b) (- d 1)) ) ) (progn (lin a b) (lin b c) (lin c a)))" + "(defun lin (a b) (moveto a) (lineto b) ) (tri '(100 70) '(50 180) '(150 180) 4)";
 	this.magicPasteBufferindex = 0;
 	this.lastFrameTimeStamp = 0;
@@ -1887,6 +3090,7 @@ var EmulatortHost = function() {
 	this.clocksPerDisplayUpdate = 0;
 	this.logText = "";
 	this.registerDiv = [];
+	this.muted = false;
 	this.halted = true;
 	var _gthis = this;
 	window.breakPoint = 16776960;
@@ -1943,11 +3147,17 @@ var EmulatortHost = function() {
 	var _g = 0;
 	while(_g < 32) {
 		var i = _g++;
-		this.registerDiv[i] = EmulatortHost.makeDiv(this.registerBox,"register");
+		this.registerDiv[i] = EmulatortHost.makeDiv(this.registerBox,"register r" + i);
 	}
-	this.xDiv = EmulatortHost.makeDiv(this.registerBox,"register sys sp");
-	this.yDiv = EmulatortHost.makeDiv(this.registerBox,"register sys sp");
-	this.zDiv = EmulatortHost.makeDiv(this.registerBox,"register sys sp");
+	this.registerDiv[26].classList.add("x");
+	this.registerDiv[27].classList.add("x");
+	this.registerDiv[28].classList.add("y");
+	this.registerDiv[29].classList.add("y");
+	this.registerDiv[30].classList.add("z");
+	this.registerDiv[31].classList.add("z");
+	this.xDiv = EmulatortHost.makeDiv(this.registerBox,"register sys sp x");
+	this.yDiv = EmulatortHost.makeDiv(this.registerBox,"register sys sp y");
+	this.zDiv = EmulatortHost.makeDiv(this.registerBox,"register sys sp z");
 	this.spDiv = EmulatortHost.makeDiv(this.registerBox,"register sys sp");
 	this.pcDiv = EmulatortHost.makeDiv(this.registerBox,"register sys pc");
 	this.sregDiv = EmulatortHost.makeDiv(this.registerBox,"register sys sreg");
@@ -1981,6 +3191,12 @@ var EmulatortHost = function() {
 			window.breakPoint = candidate;
 		}
 	});
+	this.muteButton = window.document.createElement("button");
+	this.muteButton.textContent = "🔈";
+	this.muteButton.onclick = function() {
+		_gthis.set_muted(!_gthis.muted);
+	};
+	controlPanel.appendChild(this.muteButton);
 	this.logDiv = EmulatortHost.makeDiv(containerElement,"log");
 	this.logDiv.textContent = "Log\nStarted...\n ";
 	this.avr = new AVR8();
@@ -1993,11 +3209,13 @@ var EmulatortHost = function() {
 		if(_gthis.halted) {
 			_gthis.avr.exec();
 		}
-		_gthis.setDisassamblyView(_gthis.avr.PC);
-		_gthis.updateRegisterView();
+		_gthis.updateDebugInfo();
 	};
 	resetButton.onclick = function() {
 		_gthis.reset();
+		if(_gthis.halted) {
+			_gthis.updateDebugInfo();
+		}
 	};
 	this.loadHexFile(this.testProgram);
 	this.displayCanvas.addEventListener("drop",$bind(this,this.handleFileDrop));
@@ -2024,31 +3242,28 @@ var EmulatortHost = function() {
 		var tmp5 = floatText(Math.round(clocksPassed / 500) / 1000);
 		_gthis.clockSpeedDiv.innerHTML = tmp5 + "<small> MHz</small>";
 	};
-	window.onkeydown = function(e7) {
+	window.addEventListener("keydown",function(e7) {
 		var code = e7.keyCode;
 		if(e7.key == "PageDown") {
 			_gthis.magicPaste();
 			e7.preventDefault();
 		}
 		_gthis.rawKeymap[code] = true;
-	};
-	window.onkeyup = function(e8) {
+	});
+	window.addEventListener("keyup",function(e8) {
 		var code1 = e8.keyCode;
 		_gthis.rawKeymap[code1] = false;
-	};
-	window.onkeypress = function(e9) {
+	});
+	window.addEventListener("keypress",function(e9) {
 		var code2 = e9.keyCode;
 		if(code2 == 0) {
 			code2 = e9.charCode;
 		}
 		_gthis.keyBuffer.add(code2);
 		while(_gthis.keyBuffer.length > 10) _gthis.keyBuffer.pop();
-		if(e9.keyCode == 0) {
-			e9.preventDefault();
-		}
-	};
+	});
 	var hexURL = this.getQueryVariable("hex");
-	haxe_Log.trace("hex url is : ",{ fileName : "EmulatortHost.hx", lineNumber : 256, className : "EmulatortHost", methodName : "new", customParams : [hexURL]});
+	haxe_Log.trace("hex url is : ",{ fileName : "EmulatortHost.hx", lineNumber : 272, className : "EmulatortHost", methodName : "new", customParams : [hexURL]});
 	if(hexURL != "") {
 		var request = new haxe_Http(hexURL);
 		request.onData = function(data) {
@@ -2102,13 +3317,24 @@ EmulatortHost.prototype = {
 			this.keyBuffer.add(code);
 		}
 	}
+	,set_muted: function(newValue) {
+		if(newValue != this.muted) {
+			this.muted = newValue;
+			this.muteButton.textContent = this.muted ? "🔇" : "🔈";
+			if(this.muted) {
+				this.audioGenerator.stop();
+			} else {
+				this.audioGenerator.start();
+			}
+		}
+		return newValue;
+	}
 	,set_halted: function(newValue) {
 		if(newValue != this.halted) {
 			this.halted = newValue;
 			this.runButton.textContent = this.halted ? "Run" : "Stop";
 			if(this.halted) {
-				this.setDisassamblyView(this.avr.PC);
-				this.updateRegisterView();
+				this.updateDebugInfo();
 				this.flushLog();
 			} else {
 				this.displayCanvas.focus();
@@ -2126,7 +3352,10 @@ EmulatortHost.prototype = {
 		}
 		this.avr.breakPoint = window.breakPoint / 2;
 		if(!this.halted) {
+			var start = window.performance.now();
 			this.avr.tick(clockCyclesToEmulate);
+			var finish = window.performance.now();
+			this.outputDiv.textContent = "time " + (finish - start);
 		}
 		if(this.avr.PC == this.avr.breakPoint) {
 			this.set_halted(true);
@@ -2164,7 +3393,7 @@ EmulatortHost.prototype = {
 				_gthis.clocksPerDisplayUpdate = now1 - lastDisplayUpdate;
 				lastDisplayUpdate = now1;
 				_gthis.flushLog();
-				_gthis.display.putImageData(_gthis.frameBuffer,0,0);
+				_gthis.display.putImageData(_gthis.frameBuffer,-_gthis.displayGenerator.displayShiftX,-_gthis.displayGenerator.displayShiftY);
 				break;
 			case 113:
 				_gthis.displayGenerator.blitImage(_gthis.avr,8);
@@ -2335,12 +3564,20 @@ EmulatortHost.prototype = {
 		var output = "";
 		memLocation = memLocation - 4;
 		var _g = 0;
-		while(_g < 16) {
+		while(_g < 21) {
 			var i = _g++;
-			output += "<div class=\"" + (memLocation == this.avr.PC ? "PC" : "") + "\">" + StringTools.hex(memLocation * 2,4) + ":\t" + this.avr.disassemble(memLocation) + "</div>";
 			var _this = this.avr;
 			var instruction = this.avr.progMem[memLocation];
-			memLocation = memLocation + ((instruction & 63488) != 36864 ? 1 : (instruction & 64527) == 36864 ? 2 : (instruction & 64524) == 37900 ? 2 : 1);
+			var len = (instruction & 63488) != 36864 ? 1 : (instruction & 64527) == 36864 ? 2 : (instruction & 64524) == 37900 ? 2 : 1;
+			var asHex = "";
+			var _g2 = 0;
+			var _g1 = len;
+			while(_g2 < _g1) {
+				var w = _g2++;
+				asHex += StringTools.hex(this.avr.progMem[memLocation + w],4) + " ";
+			}
+			output += "<div class=\"" + (memLocation == this.avr.PC ? "PC" : "") + "\"  tooltip=\"" + asHex + "\">" + StringTools.hex(memLocation * 2,4) + ":\t" + this.avr.disassemble(memLocation) + "</div>";
+			memLocation = memLocation + len;
 		}
 		this.disassemblyView.innerHTML = output;
 	}
@@ -2390,6 +3627,11 @@ EmulatortHost.prototype = {
 		this.instructionDiv.textContent = "PC->" + tmp;
 		this.logDiv.textContent = this.avr.log;
 	}
+	,updateDebugInfo: function() {
+		this.setDisassamblyView(this.avr.PC);
+		this.updateRegisterView();
+		this.onUpdateDebugInfo(this.debugContext);
+	}
 	,doubleSize: function() {
 		var sourceBuffer = new Uint32Array(this.frameBuffer.data.buffer);
 		var destBuffer = new Uint32Array(this.scaleBuffer.data.buffer);
@@ -2413,26 +3655,29 @@ EmulatortHost.prototype = {
 	}
 	,reset: function() {
 		this.avr.reset();
+		this.displayGenerator.clear();
 		this.magicPasteBufferindex = 0;
 		this.outputDiv.textContent = "[reset]";
-		haxe_Log.trace("[reset]",{ fileName : "EmulatortHost.hx", lineNumber : 591, className : "EmulatortHost", methodName : "reset"});
+		haxe_Log.trace("[Hay! reset]",{ fileName : "EmulatortHost.hx", lineNumber : 635, className : "EmulatortHost", methodName : "reset"});
 		this.logText = "Start of log:";
-		this.compress();
 	}
-	,loadHexFile: function(text) {
-		this.avr.clearProgMem();
+	,loadHexFile: function(text,debugData) {
 		var hexFile = new HexFile(text);
-		var totalData = 0;
-		var _g_head = hexFile.data.h;
-		while(_g_head != null) {
-			var val = _g_head.item;
-			_g_head = _g_head.next;
-			var mem = val;
-			this.avr.writeProgMem(mem.address,mem.data);
-			totalData += mem.data.length;
-		}
-		haxe_Log.trace("loaded " + totalData + " bytes from hex file",{ fileName : "EmulatortHost.hx", lineNumber : 605, className : "EmulatortHost", methodName : "loadHexFile"});
+		this.loadCodeChunks(Lambda.array(hexFile.data),debugData);
+	}
+	,loadCodeChunks: function(chunks,debugData) {
 		this.reset();
+		this.avr.clearProgMem();
+		this.debugContext = debugData;
+		var totalData = 0;
+		var _g = 0;
+		while(_g < chunks.length) {
+			var chunk = chunks[_g];
+			++_g;
+			this.avr.writeProgMem(chunk.address,chunk.data);
+			totalData += chunk.data.length;
+		}
+		haxe_Log.trace("loaded " + totalData + " bytes in total",{ fileName : "EmulatortHost.hx", lineNumber : 667, className : "EmulatortHost", methodName : "loadCodeChunks"});
 		this.set_halted(false);
 	}
 	,handleFileDrop: function(e) {
@@ -2448,8 +3693,6 @@ EmulatortHost.prototype = {
 			};
 			reader.readAsText(file);
 		}
-	}
-	,compress: function() {
 	}
 	,__class__: EmulatortHost
 };
@@ -2551,6 +3794,15 @@ HxOverrides.substr = function(s,pos,len) {
 };
 var Lambda = function() { };
 Lambda.__name__ = true;
+Lambda.array = function(it) {
+	var a = [];
+	var i = it.iterator();
+	while(i.hasNext()) {
+		var i1 = i.next();
+		a.push(i1);
+	}
+	return a;
+};
 Lambda.exists = function(it,f) {
 	var x = it.iterator();
 	while(x.hasNext()) {
@@ -2695,6 +3947,17 @@ StringTools.hex = function(n,digits) {
 		while(s.length < digits) s = "0" + s;
 	}
 	return s;
+};
+var _$UInt_UInt_$Impl_$ = {};
+_$UInt_UInt_$Impl_$.__name__ = true;
+_$UInt_UInt_$Impl_$.gt = function(a,b) {
+	var aNeg = a < 0;
+	var bNeg = b < 0;
+	if(aNeg != bNeg) {
+		return aNeg;
+	} else {
+		return a > b;
+	}
 };
 var Voice = function(outputRate) {
 	if(outputRate == null) {
