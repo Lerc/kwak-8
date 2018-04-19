@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8"/>
+	<title>Freepascal for Kwak8</title>
+	<meta name="description" content="" />
+</head>
+<body>
+<h3>Pascal on Kwak-8</h3>
+<p>
+I have cobbled together a custom build of freepascal that can build .hex files for the Kwak-8.
+It requries a small patch to the compiler to add the kwak8 target and a kwak8 system unit.
+Note that while you have access to the Pascal language, you are compiling to a bare target without
+any of the standard FreePascal libraries. In addittion to this restrictionm, the freepascal-avr
+target does not support floating point.
+</p>
+
+<p>I built a stripped down binary build for x86_64 Linux.  This provides a kpc command to use a config file
+compile with options sensible for the kwak8.  You can symlink somewhere on your path to the kpc command to
+use it from anywhere.  
+</p>
+<p>
+For example:  (assuming ~/bin is in your $PATH) <br>
+<pre><code>
+  tar -xJf kpc-x86_64.tar.xz
+  ln -s kpc/kpc ~/bin/kpc
+  tar -xJF kpc_demo.tar.xz
+  cd demo
+  kpc Demo.pas
+</code></pre>
+</p>
+
+
+<h4>The files</h4>
+<p>
+ <ul>
+	<li> <a href="files/kpc-x86_64.tar.xz">Download</a>  -  The binary build setup to compile for Kwak-8. </li>
+	<li> <a href="files/kpc_demo.tar.xz">Download</a>  -  A working example of a Kwak8 program written in pascal.</li>
+	<li> <a href="files/kwak8_fpc_builder.tar.xz">Download</a>  -  The patch file and some helper scripts to build the compiler.</li>
+</ul>
+</p>
+	
+</body>
+</html>
