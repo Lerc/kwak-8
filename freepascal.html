@@ -17,18 +17,20 @@ target does not support floating point.
 
 <p>I built a stripped down binary build for x86_64 Linux.  This provides a kpc command to use a config file
 compile with options sensible for the kwak8.  You can symlink somewhere on your path to the kpc command to
-use it from anywhere.  
+use it from anywhere.  You will still need the binutils-avr package, <code>sudo apt install binutils-avr</code>
+, or whatver is right for your distro.
 </p>
 <p>
-For example:  (assuming ~/bin is in your $PATH) <br>
+For example:  (assuming ~/bin is in your $PATH,  If not, adjust the second line to somwhere that is) <br>
 <pre><code>
   tar -xJf kpc-x86_64.tar.xz
-  ln -s kpc/kpc ~/bin/kpc
+  ln -s `pwd`/kpc/kpc ~/bin/kpc
   tar -xJF kpc_demo.tar.xz
   cd demo
   kpc Demo.pas
 </code></pre>
 </p>
+
 
 
 <h4>The files</h4>
