@@ -12,9 +12,11 @@ typedef Chunk = {
 	var data : Array<Int>;
 }
 
+@:expose
+@:keep
 class HexFile
 {
-  public var data : List <Chunk> = new List<Chunk>();
+  public var data : Array <Chunk> = new Array<Chunk>();
 	public var startAddress : Int32 = 0;
 	
 	public function new(code : String) 
@@ -35,7 +37,22 @@ class HexFile
 	inline function decodeWord(text : String, startIndex : Int = 0) {
 		return decodeHex(text, 4, startIndex);
 	}
-	
+	public function merge() {
+		var merged = new Array<Chunk>();
+		var previousChunk={address:data[0].address,data:[]};
+
+		for (chunk in data) {
+			if (previousChunk.address+previousChunk.data.length == chunk.address) {
+				previousChunk = {address:previousChunk.address, data: previousChunk.data.concat(chunk.data)}
+			} else {
+				merged.push(previousChunk);
+				previousChunk=chunk;
+			}
+		}
+		merged.push(previousChunk);
+		data=merged;
+
+	}
 	public function decode(code : String)  {
 		var regex = ~/\n/gm;
 		var lines = regex.split(code);
@@ -64,7 +81,7 @@ class HexFile
 								"address" : baseAddress + segmentAddress + address,
 								"data" : [for (i in 0...byteCount) decodeByte(line, dataStart + i * 2)]
 							};
-							data.add(range);	
+							data.push(range);	
 							
 						case 1: //eof
 							return; //probably need some sort of success/fail reporting :-)
