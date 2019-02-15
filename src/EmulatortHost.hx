@@ -35,11 +35,12 @@ class EmulatortHost
 {
 	var displayCanvas : CanvasElement;
 	var infoBox : DivElement;
-  var display : CanvasRenderingContext2D;
+  	var display : CanvasRenderingContext2D;
 	var registerBox : DivElement;
 	var disassemblyView : DivElement;
 	var avr : AVR8;
-	
+	public var currentProgram : Array<Chunk> =[];
+
 	var halted(default,set) : Bool = true;
 	var muted(default,set) : Bool = false;
 	
@@ -54,7 +55,7 @@ class EmulatortHost
 	var clockSpeedDiv:DivElement;
 	var outputDiv:DivElement;
 	var displayClocksDiv:DivElement;
-	
+	var ttyCharacters:String="";
 	var logDiv:DivElement;
 	var logText: String = "";
 	var displayGenerator : Display;
@@ -74,11 +75,13 @@ class EmulatortHost
 	//var testProgram = haxe.Resource.getString("minimalc"); 
 	//var testProgram = haxe.Resource.getString("hello");  
 
-	var testProgram = haxe.Resource.getString("audioTest");   
+	var testProgram = haxe.Resource.getString("inputTest");   
 	var frameBuffer : ImageData; 
 	 
 	var scaleBuffer : ImageData;
 	
+	var buttonsA : Int = 0;
+	var buttonsB : Int = 0;
 	var mouseX : Int;
 	var mouseY : Int;
 	var tickCounter : Int = 0;
@@ -101,7 +104,8 @@ class EmulatortHost
 	{
 		untyped Browser.window.breakPoint = 0xffff00;
 		var combo = Browser.document.createSelectElement();
-
+		buttonsA=0;
+		buttonsB=0;
 		combo.add(resourceCombo("audioTest", "Audio test"));
 		combo.add(resourceCombo("blitTest", "Blit Mode test"));
 		combo.add(resourceCombo("inputTest", "Input Test"));
@@ -312,7 +316,7 @@ class EmulatortHost
 	function set_muted(newValue : Bool) : Bool {
 		if (newValue != muted) {
 			muted = newValue;
-			muteButton.textContent = muted?"🔈":"🔇"; 
+			muteButton.textContent = muted?"🔇":"🔈"; 
 			if (muted) {
 				audioGenerator.stop();
 			} else {
@@ -340,10 +344,12 @@ class EmulatortHost
 		tickCounter = (tickCounter + 1) & 0xff;		
 		var elapsed = time-lastFrameTimeStamp;
 		lastFrameTimeStamp = time;
-		//elapsed=160;
 		var clockCyclesToEmulate = Math.floor(8000 * elapsed);
 		if (clockCyclesToEmulate > 400000) clockCyclesToEmulate = 400000;
-		//if (clockCyclesToEmulate > 4000000) clockCyclesToEmulate = 4000000;
+
+
+		
+	//	var clockCyclesToEmulate = Math.floor(18000000);
 
 		avr.breakPoint = untyped Browser.window.breakPoint / 2;
 		
@@ -368,14 +374,14 @@ class EmulatortHost
 		
 		outPort[0x22] = function (value) {
 			if (value == 0) {
-				outputDiv.textContent = '';
+				ttyCharacters = "";
 				flushLog();
 				return;
 			}
 			logText += String.fromCharCode(value);			
-			var newText = (outputDiv.textContent + String.fromCharCode(value));
+			ttyCharacters += String.fromCharCode(value);
 			//trace("received value of ", value);
-			outputDiv.textContent = newText.substr( -60);			
+			outputDiv.textContent = ttyCharacters.substr( -40);			
 		}
 		
 		var lastDisplayUpdate = avr.clockCycleCount;
@@ -383,20 +389,21 @@ class EmulatortHost
 		outPort[displayPort + 0x00] = function (value) {
 			switch (value) {
 				
-			case 1:
+			case 1:{
 				var now = avr.clockCycleCount;
 				clocksPerDisplayUpdate = now - lastDisplayUpdate;
 				lastDisplayUpdate = now;
 				flushLog();
-				display.putImageData(frameBuffer, 0, 0);			
-			case 0:
+				display.putImageData(frameBuffer, -displayGenerator.displayShiftX, -displayGenerator.displayShiftY);			
+			}
+			case 0:{
 				var now = avr.clockCycleCount;
 				clocksPerDisplayUpdate = now - lastDisplayUpdate;				
 				lastDisplayUpdate = now;
 				flushLog();
 				doubleSize();
-				
 				display.putImageData(scaleBuffer, 0, 0);
+			}	
 			case 0x80:
 				displayGenerator.renderMode0(avr);
 			case 0x81:
@@ -449,8 +456,8 @@ class EmulatortHost
 		
 		var inputsPort = 0x48;   // inputs overlap mode output registers
 		
-		inPort[inputsPort + 0x00] = function () { return read8Buttons(0); }
-		inPort[inputsPort + 0x01] = function () { return read8Buttons(8) | (mouseButtonState[0] ? 0x20:0) | (mouseButtonState[1] ? 0x40:0) | (mouseButtonState[2] ? 0x80:0) ; }
+		inPort[inputsPort + 0x00] = function () { return read8Buttons(0) | buttonsA; }
+		inPort[inputsPort + 0x01] = function () { return read8Buttons(8) | buttonsB | (mouseButtonState[0] ? 0x20:0) | (mouseButtonState[1] ? 0x40:0) | (mouseButtonState[2] ? 0x80:0) ; }
 		inPort[inputsPort + 0x02] = function () { return (mouseX >> 1)& 0xff; }
 		inPort[inputsPort + 0x03] = function () { return (mouseY >> 1)& 0xff; }
 		inPort[inputsPort + 0x04] = function () { return tickCounter; }
@@ -471,6 +478,13 @@ class EmulatortHost
 		outPort[voicePort + 0x06] = function (value)  {selectedVoice.noise= value & 0x0f; selectedVoice.hold=value>>4; }
 		outPort[voicePort + 0x07] = function (value)  {selectedVoice.attack= value & 0x0f; selectedVoice.release=value>>4; }
 		
+		var palettePort = 0x90;
+
+        var paletteMapper = function(index) {return function (value){ displayGenerator.setPaletteMapping(index,value);}}
+
+		for (i in 0...16) {
+			outPort[palettePort+i] = paletteMapper(i); 
+		}
 	}
 	
 	function read8Buttons(startingAt) {
@@ -629,7 +643,8 @@ class EmulatortHost
 
 	function reset() {
 		avr.reset();
-		displayGenerator.clear();
+		displayGenerator.reset();
+		
 		magicPasteBufferindex = 0;
 		outputDiv.textContent = "[reset]";
 		trace("[Hay! reset]");
@@ -639,6 +654,7 @@ class EmulatortHost
 	
 	function loadHexFile(text : String,debugData : Dynamic=null) {
 		var hexFile = new HexFile(text);
+		hexFile.merge();
 		loadCodeChunks(Lambda.array(hexFile.data),debugData);
 		/*
 		avr.clearProgMem();
@@ -656,6 +672,7 @@ class EmulatortHost
 	public function loadCodeChunks(chunks : Array<Chunk>,debugData : Dynamic=null) {
 		reset();
 		avr.clearProgMem();
+		currentProgram=chunks;
 		debugContext=debugData;
 		var totalData = 0;
 		for (chunk in chunks) {

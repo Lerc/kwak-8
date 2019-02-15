@@ -1,4 +1,5 @@
 
+@:expose
 class Voice {
     static inline var TWOPI = 6.2831853071795862; // Math.PI * 2;
     public var sampleRate(default,null) : Int;

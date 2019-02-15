@@ -59,11 +59,11 @@ class Audio
 	}
 	
 	public function start() {
-		ctx.suspend();
+		ctx.resume();
 	}
 	
 	public function stop() {
-		ctx.resume();
+		ctx.suspend();
 	}
 
 	function stepForFrequency(freq : Float) : Float {
