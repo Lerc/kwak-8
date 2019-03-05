@@ -1,28 +1,25 @@
 package ;
+
 import HexFile.Chunk;
-import haxe.Timer;
 import haxe.io.Bytes;
 import haxe.zip.Compress;
+
+import haxe.Timer;
 import js.Browser;
 import js.html.ButtonElement;
 import js.html.CanvasElement;
 import js.html.CanvasRenderingContext2D;
 import js.html.DivElement;
-import js.html.Document;
 import js.html.DragEvent;
 import js.html.Event;
 import js.html.FileReader;
-import js.html.HTMLAllCollection;
 import js.html.ImageData;
 import js.html.InputElement;
 import js.html.KeyboardEvent;
 import js.html.MouseEvent;
 import js.html.Node;
 import js.html.OptionElement;
-import js.html.Storage;
-import js.html.Uint8ClampedArray;
 import js.html.Uint32Array;
-import js.html.Float32Array;
 
 
 using StringTools;
@@ -31,15 +28,13 @@ using StringTools;
  * ...
  * @author Lerc
  */
-class EmulatortHost
+class EmulatortHost extends Emulator
 {
 	var displayCanvas : CanvasElement;
 	var infoBox : DivElement;
-  	var display : CanvasRenderingContext2D;
+ 	var display : CanvasRenderingContext2D;
 	var registerBox : DivElement;
 	var disassemblyView : DivElement;
-	var avr : AVR8;
-	public var currentProgram : Array<Chunk> =[];
 
 	var halted(default,set) : Bool = true;
 	var muted(default,set) : Bool = false;
@@ -58,9 +53,7 @@ class EmulatortHost
 	var ttyCharacters:String="";
 	var logDiv:DivElement;
 	var logText: String = "";
-	var displayGenerator : Display;
-	var audioGenerator : Audio;
-	var clocksPerDisplayUpdate : Int = 0;
+	
 	var runButton : ButtonElement;
 	var stepButton : ButtonElement;
 	var muteButton : ButtonElement;
@@ -76,10 +69,7 @@ class EmulatortHost
 	//var testProgram = haxe.Resource.getString("hello");  
 
 	var testProgram = haxe.Resource.getString("inputTest");   
-	var frameBuffer : ImageData; 
-	 
-	var scaleBuffer : ImageData;
-	
+
 	var buttonsA : Int = 0;
 	var buttonsB : Int = 0;
 	var mouseX : Int;
@@ -91,17 +81,17 @@ class EmulatortHost
 	var mouseButtonState : Array<Bool> = [false, false, false];
 	var buttonMap : Array<Int> = [37, 38, 39, 40, 13, 27, 17, 16, 65, 87, 68, 83, 32, 90, 88, 8];
 	var keyBuffer : List<Int> = new List<Int>();
-	var lastFrameTimeStamp : Float = 0;
 	var magicPasteBufferindex = 0;
 	var magicPasteBuffer:String = "(defun mid (a b) (if (and (listp a) (listp b)) (mapcar mid a b) (/ (+ a b) 2)))"
 		+ "(defun tri (a b c d) (if (> d 1) (progn (tri (mid a b) (mid b c) (mid a b) (- d 1)) (tri a (mid a b) (mid a c) (- d 1) ) (tri b (mid b a) (mid b c) (- d 1) ) (tri c (mid c a) (mid c b) (- d 1)) ) ) (progn (lin a b) (lin b c) (lin c a)))" 
 		+ "(defun lin (a b) (moveto a) (lineto b) ) (tri '(100 70) '(50 180) '(150 180) 4)";
 
-	var selectedVoice : Voice;
 	var debugContext : Dynamic = null;
 	public var onUpdateDebugInfo: Dynamic -> Void = function (debug){};
 	public function new() 
 	{
+		super();
+
 		untyped Browser.window.breakPoint = 0xffff00;
 		var combo = Browser.document.createSelectElement();
 		buttonsA=0;
@@ -135,13 +125,9 @@ class EmulatortHost
 		playerDiv.appendChild(controlPanel);
 		
 		display = displayCanvas.getContext2d();
-	
 		displayCanvas.width = 480;
 		displayCanvas.height = 360;
-		frameBuffer=display.getImageData(0, 0, Display.frameBufferWidth, Display.frameBufferHeight);
-		scaleBuffer=display.getImageData(0, 0, 480, 360);
-		displayGenerator = new Display(frameBuffer);
-	
+		
 		
 		infoBox = Browser.document.createDivElement();
 		infoBox.className = "diagnostics";
@@ -212,7 +198,6 @@ class EmulatortHost
 
 		logDiv = makeDiv(containerElement, "log");
 		logDiv.textContent = "Log\nStarted...\n ";
-		avr = new AVR8();
 		updateRegisterView();
 
 		runButton.onclick = function(e) { halted = !halted; e.preventDefault(); };
@@ -280,9 +265,6 @@ class EmulatortHost
 			request.request();
 		}
 
-		audioGenerator=new Audio();
-		selectedVoice=audioGenerator.voices[0];
-		audioGenerator.start(); 
 		Browser.window.requestAnimationFrame(handleAnimationFrame);
 		
 		var win : Dynamic = Browser.window;
@@ -367,7 +349,9 @@ class EmulatortHost
 		
 	}
 	
-	function installPortIOFunctions() {
+	override function installPortIOFunctions() {
+		super.installPortIOFunctions();
+
 		var inPort = avr.inPortFunctions;
 		var outPort = avr.outPortFunctions;
 		
@@ -384,75 +368,6 @@ class EmulatortHost
 			outputDiv.textContent = ttyCharacters.substr( -40);			
 		}
 		
-		var lastDisplayUpdate = avr.clockCycleCount;
-		var displayPort = 0x40;		
-		outPort[displayPort + 0x00] = function (value) {
-			switch (value) {
-				
-			case 1:{
-				var now = avr.clockCycleCount;
-				clocksPerDisplayUpdate = now - lastDisplayUpdate;
-				lastDisplayUpdate = now;
-				flushLog();
-				display.putImageData(frameBuffer, -displayGenerator.displayShiftX, -displayGenerator.displayShiftY);			
-			}
-			case 0:{
-				var now = avr.clockCycleCount;
-				clocksPerDisplayUpdate = now - lastDisplayUpdate;				
-				lastDisplayUpdate = now;
-				flushLog();
-				doubleSize();
-				display.putImageData(scaleBuffer, 0, 0);
-			}	
-			case 0x80:
-				displayGenerator.renderMode0(avr);
-			case 0x81:
-				displayGenerator.renderMode1(avr);
-			case 0x71:
-				displayGenerator.blitImage(avr,8); 
-			case 0x72:
-				displayGenerator.blitImage(avr,4); 
-			case 0x73:
-				displayGenerator.blitImage(avr,3); 
-			case 0x74:
-				displayGenerator.blitImage(avr,2); 
-			}
-
-		}
-		var modePort = displayPort + 0x08;
-		outPort[modePort + 0x00] = function (value) {	displayGenerator.modeData[0] = value;	}
-		outPort[modePort + 0x01] = function (value) {	displayGenerator.modeData[1] = value;	}
-		outPort[modePort + 0x02] = function (value) {	displayGenerator.modeData[2] = value;	}
-		outPort[modePort + 0x03] = function (value) {	displayGenerator.modeData[3] = value;	}
-		outPort[modePort + 0x04] = function (value) {	displayGenerator.modeData[4] = value;	}
-		outPort[modePort + 0x05] = function (value) {	displayGenerator.modeData[5] = value;	}
-		outPort[modePort + 0x06] = function (value) {	displayGenerator.modeData[6] = value;	}
-		outPort[modePort + 0x07] = function (value) {	displayGenerator.modeData[7] = value;	}
-
-		outPort[displayPort + 0x01] = function (value) {
-		  displayGenerator.displayShiftX = (value >> 4) & 0xf;
-		  displayGenerator.displayShiftY = value & 0xf;
-		}
-
-		outPort[displayPort + 0x02] = function (value) {
-		  displayGenerator.serialPixelAddress = (displayGenerator.serialPixelAddress & 0xffff00) | (value & 0xff);
-		}
-		outPort[displayPort + 0x03] = function (value) {
-		  displayGenerator.serialPixelAddress = (displayGenerator.serialPixelAddress & 0xff00ff) | ((value & 0xff) << 8);
-		}
-		outPort[displayPort + 0x04] = function (value) {
-
-		  displayGenerator.serialPixelAddress = (displayGenerator.serialPixelAddress & 0x00ffff) | ((value & 0xff) <<16);
-		}
-		outPort[displayPort + 0x05] = function (value) {
-			displayGenerator.serialSet(value);			
-		}
-		outPort[displayPort + 0x06] = function (value) {
-			displayGenerator.serialMul(value);			
-		}
-		outPort[displayPort + 0x07] = function (value) {
-			displayGenerator.serialAdd(value);			
-		} 
 		
 		var inputsPort = 0x48;   // inputs overlap mode output registers
 		
@@ -464,27 +379,6 @@ class EmulatortHost
 		inPort[inputsPort + 0x05] = function () { return timeCounter >> 1; }
 		inPort[inputsPort + 0x06] = function () { if (keyBuffer.isEmpty()) return 0 else return keyBuffer.pop();} 
 
-		var audioPort = 0x80;
-		var voicePort= audioPort+8;
-
-		outPort[audioPort + 0x00]  = function (value) {selectedVoice = audioGenerator.voices[value & 0x07]; }
-
-		outPort[voicePort + 0x00] = function (value)  {selectedVoice.frequency = (selectedVoice.frequency&0xff00) | value; }
-		outPort[voicePort + 0x01] = function (value)  {selectedVoice.frequency = (selectedVoice.frequency&0x00ff) | (value << 8); }
-		outPort[voicePort + 0x02] = function (value)  {selectedVoice.volume=value; }
-		outPort[voicePort + 0x03] = function (value)  {selectedVoice.waveBase = value&0x0f; selectedVoice.waveShift=value>>4;}
-		outPort[voicePort + 0x04] = function (value)  {selectedVoice.bendDuration = value & 0x1f; selectedVoice.bendPhase=value>>5; }
-		outPort[voicePort + 0x05] = function (value)  {selectedVoice.bendAmplitude=value; }
-		outPort[voicePort + 0x06] = function (value)  {selectedVoice.noise= value & 0x0f; selectedVoice.hold=value>>4; }
-		outPort[voicePort + 0x07] = function (value)  {selectedVoice.attack= value & 0x0f; selectedVoice.release=value>>4; }
-		
-		var palettePort = 0x90;
-
-        var paletteMapper = function(index) {return function (value){ displayGenerator.setPaletteMapping(index,value);}}
-
-		for (i in 0...16) {
-			outPort[palettePort+i] = paletteMapper(i); 
-		}
 	}
 	
 	function read8Buttons(startingAt) {
@@ -576,71 +470,6 @@ class EmulatortHost
 		onUpdateDebugInfo(debugContext);
 	}
 	
-	function renderMode0() {
-		
-		/*
-		var cellsWide = 160;
-		var cellsHigh = 120;
-		var cellsPerLine = 160;
-		var baseAddress = 0x4000;
-		
-		var pixelBuffer = new  Uint32Array(frameBuffer.data.buffer);
-		
-		for (ty in 0...cellsHigh) {
-			var lineStart = ty * cellsPerLine *2 + baseAddress;
-			var walk = lineStart;
-			var outputStart = ty * cellsWide * 3 * 3;
-			var outWalk = outputStart;
-			for (tx in 0...cellsWide) {
-				var cellPixels = avr.ram[walk];
-				var cellAttributes = avr.ram[walk + 1];
-				walk += 2;
-				var a = (cellAttributes >> 4);
-				var b = (cellAttributes & 0xf);
-
-				//cellPixels = 0x55;
-				var p = cellPixels;
-				pixelBuffer[outWalk] = palette[a];
-				pixelBuffer[outWalk+1] = palette[(p&1)==0?a:b];
-				pixelBuffer[outWalk+2] = palette[(p&2)==0?a:b];
-
-				pixelBuffer[outWalk+480] = palette[(p&4)==0?a:b];
-				pixelBuffer[outWalk+480+1] = palette[(p&8)==0?a:b];
-				pixelBuffer[outWalk+480+2] = palette[(p&16)==0?a:b];
-
-				pixelBuffer[outWalk+960] = palette[(p&32)==0?a:b];
-				pixelBuffer[outWalk+960+1] = palette[(p&64)==0?a:b];
-				pixelBuffer[outWalk+960+2] = palette[(p&128)==0?a:b];
-				
-				outWalk += 3;
-			}
-		}
-		*/
-		
-		//displayGenerator.renderMode0(avr);
-		
-		//display.putImageData(frameBuffer, 0, 0);
-	}
-	
-	function doubleSize() {
-		var sourceBuffer = new Uint32Array(frameBuffer.data.buffer);
-		var destBuffer = new Uint32Array(scaleBuffer.data.buffer); 
-		
-		for (ty in 0...180) {
-			var sourceIndex = (ty + displayGenerator.displayShiftY) *(frameBuffer.width ) + displayGenerator.displayShiftX;
-			var destIndex = ty * (scaleBuffer.width * 2);
-			for (tx in 0...240) {
-				var pixel = sourceBuffer[sourceIndex];
-				destBuffer[destIndex] = pixel;
-				destBuffer[destIndex + 1] = pixel;
-				destBuffer[destIndex+480] = pixel;
-				destBuffer[destIndex + 481] = pixel;
-				destIndex += 2;
-				sourceIndex += 1;
-			}
-		}
-	}
-
 	function reset() {
 		avr.reset();
 		displayGenerator.reset();
@@ -703,5 +532,32 @@ class EmulatortHost
 		
 		//var zip = Compress.run(avr.progMem.view.buffer, 7);
 		//trace(zip);
+	}
+
+
+	override function showLowRes() {
+
+		var sourceBuffer = new Uint32Array(frameBuffer.data.buffer);
+		var destBuffer = new Uint32Array(scaleBuffer.data.buffer); 
+		
+		for (ty in 0...180) {
+			var sourceIndex = (ty + displayGenerator.displayShiftY) *(frameBuffer.width ) + displayGenerator.displayShiftX;
+			var destIndex = ty * (scaleBuffer.width * 2);
+			for (tx in 0...240) {
+				var pixel = sourceBuffer[sourceIndex];
+				destBuffer[destIndex] = pixel;
+				destBuffer[destIndex + 1] = pixel;
+				destBuffer[destIndex+480] = pixel;
+				destBuffer[destIndex + 481] = pixel;
+				destIndex += 2;
+				sourceIndex += 1;
+			}
+		}
+
+		display.putImageData(scaleBuffer, 0, 0);
+	}
+
+	override function showHighRes() {
+    display.putImageData(frameBuffer, -displayGenerator.displayShiftX, -displayGenerator.displayShiftY);			
 	}
 }
