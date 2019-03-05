@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html >
+  <head>
+    <meta charset="UTF-8">
+    <title>Kwak8 cart builder</title>
+        <link rel="stylesheet" href="css/style.css">
+        <script src='js/jquery-3.2.1.min.js'></script>
+        <script src='js/sugar.min.js'></script>
+        <script src='js/hexfile.js'></script>
+        <script src='js/kwak8Carts.js'></script>
+        <script src="js/index.js"></script>
+      </head>
+
+  <body>
+
+<div id="note"></div>
+
+<div class="main">
+
+  <div id="cart" class="alphagrid"> <canvas width="512" height="446"> </canvas> </div>
+  <div id="template" class="alphagrid">
+    <img src="CartTemplate.png"> 
+  </div>
+  <div id="caption">
+    <span class="force-left">Title <input id="title" type="text" value="Half-Life III"></span>
+    <span class="force-right"><input id="title-font" type="text" value="29px journal"> Font </span>
+  </div>
+  <div id="screenshot">
+    <canvas class="alphagrid" width="480" height="360"></canvas>
+  </div>
+  <div id="code">
+    <p>No program data present.</p>  <p> Drop a .hex file here to add a program.</p>
+  </div>
+</div>
+    
+    
+    
+  </body>
+</html>
