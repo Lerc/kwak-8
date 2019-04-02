@@ -1,9 +1,9 @@
 
 package ;
 import haxe.Int32;
-import js.html.Int8Array;
-import js.html.Uint16Array;
-import js.html.Uint8Array;
+import js.lib.Int8Array;
+import js.lib.Uint16Array;
+import js.lib.Uint8Array;
 
 using StringTools;
 

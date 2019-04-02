@@ -28,16 +28,11 @@ using StringTools;
  * ...
  * @author Lerc
  */
-class EmulatortHost extends Emulator
+class EmulatortHost extends WebEmulator
 {
-	var displayCanvas : CanvasElement;
 	var infoBox : DivElement;
- 	var display : CanvasRenderingContext2D;
 	var registerBox : DivElement;
 	var disassemblyView : DivElement;
-
-	var halted(default,set) : Bool = true;
-	var muted(default,set) : Bool = false;
 	
 	var registerDiv = new Array<DivElement>();
 	var xDiv:DivElement;
@@ -70,32 +65,16 @@ class EmulatortHost extends Emulator
 
 	var testProgram = haxe.Resource.getString("inputTest");   
 
-	var buttonsA : Int = 0;
-	var buttonsB : Int = 0;
-	var mouseX : Int;
-	var mouseY : Int;
-	var tickCounter : Int = 0;
-	var timeCounter : Int = 0;
-	
-	var rawKeymap : Array<Bool> = [];
-	var mouseButtonState : Array<Bool> = [false, false, false];
-	var buttonMap : Array<Int> = [37, 38, 39, 40, 13, 27, 17, 16, 65, 87, 68, 83, 32, 90, 88, 8];
-	var keyBuffer : List<Int> = new List<Int>();
 	var magicPasteBufferindex = 0;
 	var magicPasteBuffer:String = "(defun mid (a b) (if (and (listp a) (listp b)) (mapcar mid a b) (/ (+ a b) 2)))"
 		+ "(defun tri (a b c d) (if (> d 1) (progn (tri (mid a b) (mid b c) (mid a b) (- d 1)) (tri a (mid a b) (mid a c) (- d 1) ) (tri b (mid b a) (mid b c) (- d 1) ) (tri c (mid c a) (mid c b) (- d 1)) ) ) (progn (lin a b) (lin b c) (lin c a)))" 
 		+ "(defun lin (a b) (moveto a) (lineto b) ) (tri '(100 70) '(50 180) '(150 180) 4)";
 
-	var debugContext : Dynamic = null;
 	public var onUpdateDebugInfo: Dynamic -> Void = function (debug){};
 	public function new() 
 	{
 		super();
-
-		untyped Browser.window.breakPoint = 0xffff00;
 		var combo = Browser.document.createSelectElement();
-		buttonsA=0;
-		buttonsB=0;
 		combo.add(resourceCombo("audioTest", "Audio test"));
 		combo.add(resourceCombo("blitTest", "Blit Mode test"));
 		combo.add(resourceCombo("inputTest", "Input Test"));
@@ -109,24 +88,11 @@ class EmulatortHost extends Emulator
 			loadHexFile(combo.value);
 			combo.blur();
 		}
-		
-		var playerDiv =  Browser.document.createDivElement();
-		containerElement.appendChild(playerDiv);
-		displayCanvas = Browser.document.createCanvasElement();
-		displayCanvas.addEventListener('mousemove', function(e:MouseEvent){mouseX = e.offsetX; mouseY = e.offsetY; });
-		displayCanvas.addEventListener('mousedown', function(e:MouseEvent){ mouseButtonState[e.button] = true;});
-		displayCanvas.addEventListener('mouseup', function(e:MouseEvent){ mouseButtonState[e.button] = false;});
-		displayCanvas.addEventListener('contextmenu', function(e:MouseEvent){ e.preventDefault(); });
-		
-		playerDiv.appendChild(displayCanvas);
-		
+			
 		var controlPanel = Browser.document.createDivElement();
 		controlPanel.className = "control panel";
 		playerDiv.appendChild(controlPanel);
 		
-		display = displayCanvas.getContext2d();
-		displayCanvas.width = 480;
-		displayCanvas.height = 360;
 		
 		
 		infoBox = Browser.document.createDivElement();
@@ -204,16 +170,14 @@ class EmulatortHost extends Emulator
 		stepButton.onclick = function() { if (halted) avr.exec(); updateDebugInfo(); };
 		resetButton.onclick = function (){ reset(); if (halted) {updateDebugInfo();} }; 
 		loadHexFile(testProgram);
-		
-		displayCanvas.addEventListener("drop", handleFileDrop);
-		displayCanvas.addEventListener("dragover",  function (evt) {
-			evt.stopPropagation();
-			evt.preventDefault();
-			evt.dataTransfer.dropEffect = 'copy'; 
+
+		Browser.window.addEventListener("keydown", function (e : KeyboardEvent) {
+			if (e.key == "PageDown") {
+					magicPaste();
+					e.preventDefault();
+			}
 		});
-		
-		installPortIOFunctions();
-		
+
 		var halfsecondTimer = new Timer(500);
 		var lastTime = avr.clockCycleCount;
 		
@@ -222,6 +186,7 @@ class EmulatortHost extends Emulator
 			var b = "" + a / 1000;
 			return b.substr(0, 5);
 		}
+
 		halfsecondTimer.run = function() { 
 			var clocksPassed = avr.clockCycleCount - lastTime;
 			lastTime = avr.clockCycleCount;
@@ -230,32 +195,6 @@ class EmulatortHost extends Emulator
 			clockSpeedDiv.innerHTML = floatText(Math.round(clocksPassed / 500) / 1000) + "<small> MHz</small>";	
 		};
 
-		Browser.window.addEventListener("keydown", function (e : KeyboardEvent) {
-			var code = e.keyCode;
-			if (e.key == "PageDown") {
-				magicPaste();
-				e.preventDefault();
-			}
-			rawKeymap[code] = true;
-		});
-
-		Browser.window.addEventListener("keyup", function (e : KeyboardEvent) {
-			var code = e.keyCode;
-			rawKeymap[code] = false;
-		});
-
-		Browser.window.addEventListener("keypress", function (e : KeyboardEvent) {
-			var code = e.keyCode;
-			if (code == 0) code = e.charCode;
-			
-			keyBuffer.add(code);
-			while (keyBuffer.length > 10) {
-				keyBuffer.pop();
-			}
-			
-			//if (e.keyCode == 0) e.preventDefault();
-
-		});
 		
 	  var hexURL = getQueryVariable("hex");
 		trace("hex url is : ", hexURL);
@@ -265,11 +204,13 @@ class EmulatortHost extends Emulator
 			request.request();
 		}
 
-		Browser.window.requestAnimationFrame(handleAnimationFrame);
 		
 		var win : Dynamic = Browser.window;
 		win.emulatorHost = this;
-		
+
+
+    start();
+	
 	}
   
 	function getQueryVariable(variable)   {
@@ -292,71 +233,16 @@ class EmulatortHost extends Emulator
 		if (magicPasteBufferindex < magicPasteBuffer.length) {
 			var code = magicPasteBuffer.charCodeAt(magicPasteBufferindex++);
 			keyBuffer.add(code);			
-		}
-		
+		}	
 	}
-	function set_muted(newValue : Bool) : Bool {
-		if (newValue != muted) {
-			muted = newValue;
-			muteButton.textContent = muted?"🔇":"🔈"; 
-			if (muted) {
-				audioGenerator.stop();
-			} else {
-				audioGenerator.start();	
-			}
-		}
-		return newValue;
-		
-	}
-	function set_halted(newValue : Bool) : Bool {
-		if (newValue != halted) {
-			halted = newValue;
-			runButton.textContent = halted?"Run":"Stop"; 
-			if (halted) {
-				updateDebugInfo();
-				flushLog();
-			} else {
-				displayCanvas.focus();
-			}
-		}
-		return newValue;
-	}
-	
-	function handleAnimationFrame(time:Float) : Void {
-		tickCounter = (tickCounter + 1) & 0xff;		
-		var elapsed = time-lastFrameTimeStamp;
-		lastFrameTimeStamp = time;
-		var clockCyclesToEmulate = Math.floor(8000 * elapsed);
-		if (clockCyclesToEmulate > 400000) clockCyclesToEmulate = 400000;
 
-
-		
-	//	var clockCyclesToEmulate = Math.floor(18000000);
-
-		avr.breakPoint = untyped Browser.window.breakPoint / 2;
-		
-		if (!halted) {
-			var start = Browser.window.performance.now(); 
-		 	avr.tick(clockCyclesToEmulate);
-			var finish = Browser.window.performance.now(); 
-			outputDiv.textContent = "time "+(finish-start);		
-		}
-		if (avr.PC == avr.breakPoint) {
-			halted = true;
-			
-		}
-		Browser.window.requestAnimationFrame(handleAnimationFrame);
-		
-	}
 	
 	override function installPortIOFunctions() {
 		super.installPortIOFunctions();
 
-		var inPort = avr.inPortFunctions;
-		var outPort = avr.outPortFunctions;
-		
-		
-		outPort[0x22] = function (value) {
+		var outPort = avr.outPortFunctions;		
+
+    outPort[0x22] = function (value) {
 			if (value == 0) {
 				ttyCharacters = "";
 				flushLog();
@@ -367,29 +253,8 @@ class EmulatortHost extends Emulator
 			//trace("received value of ", value);
 			outputDiv.textContent = ttyCharacters.substr( -40);			
 		}
-		
-		
-		var inputsPort = 0x48;   // inputs overlap mode output registers
-		
-		inPort[inputsPort + 0x00] = function () { return read8Buttons(0) | buttonsA; }
-		inPort[inputsPort + 0x01] = function () { return read8Buttons(8) | buttonsB | (mouseButtonState[0] ? 0x20:0) | (mouseButtonState[1] ? 0x40:0) | (mouseButtonState[2] ? 0x80:0) ; }
-		inPort[inputsPort + 0x02] = function () { return (mouseX >> 1)& 0xff; }
-		inPort[inputsPort + 0x03] = function () { return (mouseY >> 1)& 0xff; }
-		inPort[inputsPort + 0x04] = function () { return tickCounter; }
-		inPort[inputsPort + 0x05] = function () { return timeCounter >> 1; }
-		inPort[inputsPort + 0x06] = function () { if (keyBuffer.isEmpty()) return 0 else return keyBuffer.pop();} 
 
-	}
-	
-	function read8Buttons(startingAt) {
-		
-		var result = 0;
-		for (i in 0...8) {
-			var bit = rawKeymap[buttonMap[startingAt + i]]?1:0;
-			result += bit << i;
-		}
-		return result;
-	}
+  }	
 
 	public function flushLog() {
 		if (logText != '') {					
@@ -470,10 +335,8 @@ class EmulatortHost extends Emulator
 		onUpdateDebugInfo(debugContext);
 	}
 	
-	function reset() {
-		avr.reset();
-		displayGenerator.reset();
-		
+	override function reset() {
+		super.reset();		
 		magicPasteBufferindex = 0;
 		outputDiv.textContent = "[reset]";
 		trace("[Hay! reset]");
@@ -481,52 +344,6 @@ class EmulatortHost extends Emulator
 		//compress();
 	}
 	
-	function loadHexFile(text : String,debugData : Dynamic=null) {
-		var hexFile = new HexFile(text);
-		hexFile.merge();
-		loadCodeChunks(Lambda.array(hexFile.data),debugData);
-		/*
-		avr.clearProgMem();
-		var totalData = 0;
-		for (mem in hexFile.data) {
-			avr.writeProgMem(mem.address, mem.data);
-			totalData += mem.data.length;
-		  //trace('added ${mem.data.length} bytes at ${mem.address}');
-		}
-		trace('loaded ${totalData} bytes from hex file');
-		reset();
-		halted = false;
-		*/
-	}
-	public function loadCodeChunks(chunks : Array<Chunk>,debugData : Dynamic=null) {
-		reset();
-		avr.clearProgMem();
-		currentProgram=chunks;
-		debugContext=debugData;
-		var totalData = 0;
-		for (chunk in chunks) {
-			avr.writeProgMem(chunk.address,chunk.data);			
-			totalData += chunk.data.length;
-			//trace('loaded ${chunk.data.length} bytes at ${chunk.address}');
-
-		}
-		trace('loaded ${totalData} bytes in total');
-
-		halted = false;
-	}
-
-	function handleFileDrop(e : DragEvent) {
-		e.stopPropagation();
-        e.preventDefault();
-		
-		var files = e.dataTransfer.files;
-		if (files.length == 1) {
-			var file = files[0];
-			var reader = new FileReader();
-			reader.onload = function () {loadHexFile(reader.result); };
-			reader.readAsText(file);
-		}
-	}
 	
 	public function compress() {
 		
@@ -534,30 +351,19 @@ class EmulatortHost extends Emulator
 		//trace(zip);
 	}
 
-
-	override function showLowRes() {
-
-		var sourceBuffer = new Uint32Array(frameBuffer.data.buffer);
-		var destBuffer = new Uint32Array(scaleBuffer.data.buffer); 
-		
-		for (ty in 0...180) {
-			var sourceIndex = (ty + displayGenerator.displayShiftY) *(frameBuffer.width ) + displayGenerator.displayShiftX;
-			var destIndex = ty * (scaleBuffer.width * 2);
-			for (tx in 0...240) {
-				var pixel = sourceBuffer[sourceIndex];
-				destBuffer[destIndex] = pixel;
-				destBuffer[destIndex + 1] = pixel;
-				destBuffer[destIndex+480] = pixel;
-				destBuffer[destIndex + 481] = pixel;
-				destIndex += 2;
-				sourceIndex += 1;
+	override function handleHaltStateChange() {
+		super.handleHaltStateChange();
+		runButton.textContent = halted?"Run":"Stop"; 
+			if (halted) {
+				updateDebugInfo();
+				flushLog();
 			}
-		}
-
-		display.putImageData(scaleBuffer, 0, 0);
 	}
 
-	override function showHighRes() {
-    display.putImageData(frameBuffer, -displayGenerator.displayShiftX, -displayGenerator.displayShiftY);			
+	override function handleMuteStateChange() {
+		super.handleMuteStateChange();
+		muteButton.textContent = muted?"🔇":"🔈"; 
+
 	}
+
 }

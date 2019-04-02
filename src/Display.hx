@@ -1,7 +1,7 @@
 package;
 import haxe.io.UInt8Array;
 import js.html.ImageData;
-import js.html.Uint32Array;
+import js.lib.Uint32Array;
 
 
 /**
