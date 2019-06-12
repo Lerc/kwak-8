@@ -48,6 +48,10 @@ class Emulator {
 		}
 	}
 
+	public function stop() {
+		halted=true;
+	}
+	
 	public function initialize() {
 		audioGenerator.start(); 
 	}
