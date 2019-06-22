@@ -242,7 +242,7 @@ class EmulatortHost extends WebEmulator
 
 		var outPort = avr.outPortFunctions;		
 
-    outPort[0x22] = function (value) {
+    outPort[0x38] = function (value) {
 			if (value == 0) {
 				ttyCharacters = "";
 				flushLog();

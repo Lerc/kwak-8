@@ -121,7 +121,7 @@ class WebEmulator extends Emulator
 
 		var inPort = avr.inPortFunctions;
 	
-		var inputsPort = 0x48;   // inputs overlap mode output registers
+		var inputsPort = 0x30;   // inputs overlap mode output registers
 		
 		inPort[inputsPort + 0x00] = function () { return read8Buttons(0) | buttonsA; }
 		inPort[inputsPort + 0x01] = function () { return read8Buttons(8) | buttonsB | (mouseButtonState[0] ? 0x20:0) | (mouseButtonState[1] ? 0x40:0) | (mouseButtonState[2] ? 0x80:0) ; }

@@ -70,79 +70,93 @@ class Emulator {
 
 
 		var lastDisplayUpdate = avr.clockCycleCount;
-		var displayPort = 0x40;		
-		outPort[displayPort + 0x00] = function (value) {
-		switch (value) {			
-			case 1:{
-				var now = avr.clockCycleCount;
-				clocksPerDisplayUpdate = now - lastDisplayUpdate;
-				lastDisplayUpdate = now;
-								showHighRes();
-			}
-			case 0:{
-				var now = avr.clockCycleCount;
-				clocksPerDisplayUpdate = now - lastDisplayUpdate;				
-				lastDisplayUpdate = now;
-								showLowRes();
-			}	
-			case 0x80:
-				displayGenerator.renderMode0(avr);
-			case 0x81:
-				displayGenerator.renderMode1(avr);
-			case 0x71:
-				displayGenerator.blitImage(avr,8); 
-			case 0x72:
-				displayGenerator.blitImage(avr,4); 
-			case 0x73:
-				displayGenerator.blitImage(avr,3); 
-			case 0x74:
-				displayGenerator.blitImage(avr,2); 
-			}
-		}
-		var modePort = displayPort + 0x08;
-		outPort[modePort + 0x00] = function (value) {	displayGenerator.modeData[0] = value;	}
-		outPort[modePort + 0x01] = function (value) {	displayGenerator.modeData[1] = value;	}
-		outPort[modePort + 0x02] = function (value) {	displayGenerator.modeData[2] = value;	}
-		outPort[modePort + 0x03] = function (value) {	displayGenerator.modeData[3] = value;	}
-		outPort[modePort + 0x04] = function (value) {	displayGenerator.modeData[4] = value;	}
-		outPort[modePort + 0x05] = function (value) {	displayGenerator.modeData[5] = value;	}
-		outPort[modePort + 0x06] = function (value) {	displayGenerator.modeData[6] = value;	}
-		outPort[modePort + 0x07] = function (value) {	displayGenerator.modeData[7] = value;	}
 
-		outPort[displayPort + 0x01] = function (value) {
-			displayGenerator.displayShiftX = (value >> 4) & 0xf;
-			displayGenerator.displayShiftY = value & 0xf;
-		}
+		var displayWritePort = 0x20;
 
-		outPort[displayPort + 0x02] = function (value) {
+		outPort[displayWritePort + 0x00] = function (value) {
 			displayGenerator.serialPixelAddress = (displayGenerator.serialPixelAddress & 0xffff00) | (value & 0xff);
 		}
 
-		outPort[displayPort + 0x03] = function (value) {
+		outPort[displayWritePort + 0x01] = function (value) {
 			displayGenerator.serialPixelAddress = (displayGenerator.serialPixelAddress & 0xff00ff) | ((value & 0xff) << 8);
 		}
 
-		outPort[displayPort + 0x04] = function (value) {
+		outPort[displayWritePort + 0x02] = function (value) {
 			displayGenerator.serialPixelAddress = (displayGenerator.serialPixelAddress & 0x00ffff) | ((value & 0xff) <<16);
 		}
 
-		outPort[displayPort + 0x05] = function (value) {
-			displayGenerator.serialSet(value);			
+		outPort[displayWritePort + 0x03] = function (value) {
+			displayGenerator.serialPixelControl = value;			
 		}
 
-		outPort[displayPort + 0x06] = function (value) {
-			displayGenerator.serialMul(value);			
+		outPort[displayWritePort + 0x04] = function (value) {
+			displayGenerator.serialBaseColor = value;			
 		}
 
-		outPort[displayPort + 0x07] = function (value) {
+		outPort[displayWritePort + 0x05] = function (value) {
 			displayGenerator.serialAdd(value);			
+		}
+
+		outPort[displayWritePort + 0x06] = function (value) {
+			displayGenerator.serialSub(value);			
+		}
+
+		outPort[displayWritePort + 0x07] = function (value) {
+			displayGenerator.serialMul(value);			
 		} 
-		
-		var audioPort = 0x80;
-		var voicePort= audioPort+8;
 
-		outPort[audioPort + 0x00]  = function (value) {selectedVoice = audioGenerator.voices[value & 0x07]; }
+		outPort[0x28] = function (value) {
+			var now = avr.clockCycleCount;
+			clocksPerDisplayUpdate = now - lastDisplayUpdate;
+			lastDisplayUpdate = now;
+			if ( (value & 1) == 1) {
+				showHighRes();
+			} else {
+				showLowRes();
+			}
+		}
 
+		outPort[0x29] = function (value) {
+			displayGenerator.displayShiftX = value;
+		}
+
+		outPort[0x2a] = function (value) {
+			displayGenerator.displayShiftY = value;
+		}
+
+
+		outPort[0x2b] = function (value) {
+		switch (value) {			
+			case 0x01:
+				displayGenerator.blitImage(avr,8); 
+			case 0x02:
+				displayGenerator.blitImage(avr,4); 
+			case 0x03:
+				displayGenerator.blitImage(avr,3); 
+			case 0x04:
+				displayGenerator.blitImage(avr,2); 
+
+			case 0x10:
+				displayGenerator.renderMode0(avr);
+			case 0x11:
+				displayGenerator.renderMode1(avr);
+			}
+		}
+
+		var blitConfigPort = 0x48;
+		outPort[blitConfigPort + 0x00] = function (value) {	displayGenerator.blitConfig[0] = value;	}
+		outPort[blitConfigPort + 0x01] = function (value) {	displayGenerator.blitConfig[1] = value;	}
+		outPort[blitConfigPort + 0x02] = function (value) {	displayGenerator.blitConfig[2] = value;	}
+		outPort[blitConfigPort + 0x03] = function (value) {	displayGenerator.blitConfig[3] = value;	}
+		outPort[blitConfigPort + 0x04] = function (value) {	displayGenerator.blitConfig[4] = value;	}
+		outPort[blitConfigPort + 0x05] = function (value) {	displayGenerator.blitConfig[5] = value;	}
+		outPort[blitConfigPort + 0x06] = function (value) {	displayGenerator.blitConfig[6] = value;	}
+		outPort[blitConfigPort + 0x07] = function (value) {	displayGenerator.blitConfig[7] = value;	}
+
+		outPort[0x2c]  = function (value) {selectedVoice = audioGenerator.voices[value & 0x07]; }
+		outPort[0x2d]  = function (value) {selectedVoice = audioGenerator.voices[value & 0x07]; }
+
+		var voicePort= 0x50;
 		outPort[voicePort + 0x00] = function (value)  {selectedVoice.frequency = (selectedVoice.frequency&0xff00) | value; }
 		outPort[voicePort + 0x01] = function (value)  {selectedVoice.frequency = (selectedVoice.frequency&0x00ff) | (value << 8); }
 		outPort[voicePort + 0x02] = function (value)  {selectedVoice.volume=value; }
@@ -152,7 +166,7 @@ class Emulator {
 		outPort[voicePort + 0x06] = function (value)  {selectedVoice.noise= value & 0x0f; selectedVoice.hold=value>>4; }
 		outPort[voicePort + 0x07] = function (value)  {selectedVoice.attack= value & 0x0f; selectedVoice.release=value>>4; }
 		
-		var palettePort = 0x90;
+		var palettePort = 0x60;
 
 		var paletteMapper = function(index) {return function (value){ displayGenerator.setPaletteMapping(index,value);}}
 
