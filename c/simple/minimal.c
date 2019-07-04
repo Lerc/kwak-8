@@ -5,8 +5,10 @@
 #include <avr/io.h>
 
 
-//Normally these defines would be in an include
-//but this example is meant to be self contained.
+
+//ordinarily you would bring this stuff in from an include file (../common/hwio.h)
+//but for this example everything is in one file to make the context clearer.
+
 #define PORT_DISPLAY_CONTROL _SFR_IO8(0x08)
 #define PORT_DISPLAY_SHIFT_X  _SFR_IO8(0x09)
 #define PORT_DISPLAY_SHIFT_Y  _SFR_IO8(0x0a)
@@ -27,22 +29,17 @@
 #define PORT_MODE0_CELLS_HIGH  _SFR_IO8(0x2B)
 #define PORT_MODE0_LINE_INCREMENT  _SFR_IO8(0x2C)
 
-
-#define PORT_MOUSEX  _SFR_IO8(0x12)
-#define PORT_MOUSEY  _SFR_IO8(0x13)
-#define PORT_TICKER  _SFR_IO8(0x14)
-
-
-#define  FBC_SHOW_DISPLAY  0
-#define  FBC_SHOW_DISPLAY_HIRES 1
+#define  DC_SHOW_DISPLAY  0
+#define  DC_SHOW_DISPLAY_HIRES 1
   
-#define  BLITCON_BLIT_8 1
-#define  BLITCON_BLIT_4 2
-#define  BLITCON_BLIT_3 3
-#define  BLITCON_BLIT_2 4
-
 #define  BLITCON_MODE_0 0x10
-#define  BLITCON_MODE_1 0x11
+
+#define PORT_MOUSE_X  _SFR_IO8(0x12)
+#define PORT_MOUSE_Y  _SFR_IO8(0x13)
+#define PORT_TICK  _SFR_IO8(0x14)
+#define PORT_TIME  _SFR_IO8(0x15)
+#define PORT_KEY_BUFFER  _SFR_IO8(0x16)
+;
 
 //sets the serial pixel write position.
 void setPixelCursor(uint16_t x,uint16_t y) {
@@ -55,9 +52,9 @@ void setPixelCursor(uint16_t x,uint16_t y) {
 }
 
 void waitForNextFrame() {
-  uint8_t now = PORT_TICKER;
+  uint8_t now = PORT_TICK;
   for (;;) {
-    if (PORT_TICKER != now) break;
+    if (PORT_TICK != now) break;
   }
 }
 
@@ -89,8 +86,8 @@ main (void)
       PORT_BLIT_CONTROL=BLITCON_MODE_0;  //render mode0 to frameBuffer
 
 
-      x=PORT_MOUSEX;
-      y=PORT_MOUSEY;
+      x=PORT_MOUSE_X;
+      y=PORT_MOUSE_Y;
 
       // three pixels across and one above, one below, makes a tiny + 
       setPixelCursor(x-1,y);

@@ -4,35 +4,53 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 
-#define PORT_DISPLAY_CONTROL _SFR_IO8(0x20)
-#define PORT_DISPLAY_SHIFT  _SFR_IO8(0x21)
-#define PORT_SERIAL_PIXEL_ADDRESS  _SFR_IO16(0x22)
-#define PORT_SERIAL_PIXEL_ADDRESS_L  _SFR_IO8(0x22)
-#define PORT_SERIAL_PIXEL_ADDRESS_M  _SFR_IO8(0x23)
-#define PORT_SERIAL_PIXEL_ADDRESS_H  _SFR_IO8(0x24)
-#define PORT_SERIAL_PIXEL_SET  _SFR_IO8(0x25)
-#define PORT_SERIAL_PIXEL_MUL  _SFR_IO8(0x26)
-#define PORT_SERIAL_PIXEL_ADD  _SFR_IO8(0x27)
+#define PORT_DISPLAY_CONTROL _SFR_IO8(0x08)
+#define PORT_DISPLAY_SHIFT_X  _SFR_IO8(0x09)
+#define PORT_DISPLAY_SHIFT_Y  _SFR_IO8(0x0a)
+#define PORT_BLIT_CONTROL _SFR_IO8(0x0b)
 
-#define PORT_MODE0_PIXEL_DISPLAY_START  _SFR_IO16(0x28)
-#define PORT_MODE0_COLOR_DISPLAY_START  _SFR_IO16(0x2A)
-#define PORT_MODE0_PIXEL_INCREMENT  _SFR_IO8(0x2C)
-#define PORT_MODE0_COLOR_INCREMENT  _SFR_IO8(0x2D)
-#define PORT_MODE0_PIXEL_LINE_INCREMENT  _SFR_IO8(0x2E)
-#define PORT_MODE0_COLOR_LINE_INCREMENT  _SFR_IO8(0x2F)
+#define PORT_SERIAL_PIXEL_ADDRESS  _SFR_IO16(0x00)
+#define PORT_SERIAL_PIXEL_ADDRESS_L  _SFR_IO8(0x00)
+#define PORT_SERIAL_PIXEL_ADDRESS_M  _SFR_IO8(0x01)
+#define PORT_SERIAL_PIXEL_ADDRESS_H  _SFR_IO8(0x02)
+#define PORT_SERIAL_PIXEL_MODE  _SFR_IO8(0x03)
+#define PORT_SERIAL_PIXEL_BASE  _SFR_IO8(0x04)
+#define PORT_SERIAL_PIXEL_ADD  _SFR_IO8(0x05)
+#define PORT_SERIAL_PIXEL_SUB  _SFR_IO8(0x06)
+#define PORT_SERIAL_PIXEL_MUL  _SFR_IO8(0x07)
+
+#define PORT_MODE0_IMAGE_DATA  _SFR_IO16(0x28)
+#define PORT_MODE0_CELLS_WIDE  _SFR_IO8(0x2A)
+#define PORT_MODE0_CELLS_HIGH  _SFR_IO8(0x2B)
+#define PORT_MODE0_LINE_INCREMENT  _SFR_IO8(0x2C)
+
+
+#define  DC_SHOW_DISPLAY  0
+#define  DC_SHOW_DISPLAY_HIRES 1
+  
+#define  BLITCON_BLIT_8 1
+#define  BLITCON_BLIT_4 2
+#define  BLITCON_BLIT_3 3
+#define  BLITCON_BLIT_2 4
+
+#define  BLITCON_MODE_0 0x10
+#define  BLITCON_MODE_1 0x11
 
 #define PORT_BLIT_IMAGE_START  _SFR_IO16(0x28)
 #define PORT_BLIT_BYTES_WIDE  _SFR_IO8(0x2A)
-#define PORT_BLIT_HEIGHT  _SFR_IO8(0x2B)
+#define PORT_BLIT_PIXELS_HIGH  _SFR_IO8(0x2B)
 #define PORT_BLIT_LINE_INCREMENT  _SFR_IO8(0x2C)
 #define PORT_BLIT_PALETTE_START  _SFR_IO16(0x2D)
 #define PORT_BLIT_FLAGS  _SFR_IO8(0x2F)
 
-
-#define PORT_MOUSEX  _SFR_IO8(0x2A)
-#define PORT_MOUSEY  _SFR_IO8(0x2B)
-#define PORT_TICK  _SFR_IO8(0x2C)
-#define PORT_TIME  _SFR_IO8(0x2D)
+#define PORT_BUTTONS  _SFR_IO16(0x10)
+#define PORT_BUTTONSA  _SFR_IO8(0x10)
+#define PORT_BUTTONSB  _SFR_IO8(0x11)
+#define PORT_MOUSE_X  _SFR_IO8(0x12)
+#define PORT_MOUSE_Y  _SFR_IO8(0x13)
+#define PORT_TICK  _SFR_IO8(0x14)
+#define PORT_TIME  _SFR_IO8(0x15)
+#define PORT_KEY_BUFFER  _SFR_IO8(0x16)
 
 void setPixelCursor(uint16_t x,uint16_t y) {
   uint32_t addr = ((uint32_t)(y)) * 512 + x ;
@@ -52,7 +70,7 @@ void setImage(uint16_t x,uint16_t y, uint8_t w, uint8_t h, const uint8_t* progme
     for (uint8_t tx=0;tx<w;tx++) {
        uint8_t pixel = pgm_read_byte(walk);
        walk+=1;
-       if (pixel == 0) PORT_SERIAL_PIXEL_ADD=0; else PORT_SERIAL_PIXEL_SET = pixel;
+       if (pixel == 0) PORT_SERIAL_PIXEL_SUB=0; else PORT_SERIAL_PIXEL_ADD = pixel;
     }
   }
 }
@@ -62,7 +80,7 @@ void writeRect(uint16_t x,uint16_t y, uint8_t w, uint8_t h,uint8_t color) {
   while (y < bottom) {
     setPixelCursor(x,y++);
     for (uint8_t tx=0;tx<w;tx++) {
-        PORT_SERIAL_PIXEL_SET = color;
+        PORT_SERIAL_PIXEL_ADD = color;
     }
   }
 }
@@ -172,14 +190,13 @@ const uint8_t font[96][6] PROGMEM = {
   {112,224,0,0,0,0}				 // ~
 };
 
-void renderMode0(uint16_t dataStart, uint8_t width_in_cells, uint8_t pageHeight ) {
-    PORT_MODE0_PIXEL_DISPLAY_START = dataStart;
-    PORT_MODE0_COLOR_DISPLAY_START = (dataStart+1);
-    PORT_MODE0_PIXEL_INCREMENT=2;
-    PORT_MODE0_COLOR_INCREMENT=2;
-    PORT_MODE0_PIXEL_LINE_INCREMENT=width_in_cells >> 2; //   width_in_cells*2 >> 3
-    PORT_MODE0_COLOR_LINE_INCREMENT=width_in_cells >> 2;
-    PORT_DISPLAY_CONTROL=0x80;
+void renderMode0(uint16_t dataStart, uint8_t width_in_cells, uint8_t height_in_cells ) {
+    PORT_MODE0_IMAGE_DATA = dataStart;
+    PORT_MODE0_CELLS_WIDE=width_in_cells;
+    PORT_MODE0_CELLS_HIGH=height_in_cells;
+    PORT_MODE0_LINE_INCREMENT=width_in_cells;
+    setPixelCursor(0,0);
+    PORT_BLIT_CONTROL=BLITCON_MODE_0;
 }
 
 void renderChar(uint8_t x, uint8_t y, uint8_t ch, uint8_t attribute,  uint16_t textPage, uint8_t pageWidth, uint8_t pageHeight  ) {
@@ -232,7 +249,7 @@ void testBlit(uint16_t x, uint8_t y,uint8_t mode, uint8_t flags) {
 
     PORT_BLIT_IMAGE_START  = (uint16_t)(&testSprite);
     PORT_BLIT_BYTES_WIDE  = 4;
-    PORT_BLIT_HEIGHT = 12;
+    PORT_BLIT_PIXELS_HIGH = 12;
     PORT_BLIT_LINE_INCREMENT = 4;
     PORT_BLIT_PALETTE_START = (uint16_t)(&palette);
 
@@ -240,14 +257,14 @@ void testBlit(uint16_t x, uint8_t y,uint8_t mode, uint8_t flags) {
 
     setPixelCursor(x,y);
 
-    PORT_DISPLAY_CONTROL = mode;
+    PORT_BLIT_CONTROL = mode;
 
 }
 
 void drawImageData(uint16_t x, uint8_t y, uint8_t width_in_bytes, uint8_t height, const  uint8_t* image,const uint8_t* palette_table, uint8_t mode, uint8_t flags) {
   PORT_BLIT_IMAGE_START  = (uint16_t)(image);
   PORT_BLIT_BYTES_WIDE  = width_in_bytes;
-  PORT_BLIT_HEIGHT = height;
+  PORT_BLIT_PIXELS_HIGH = height;
   PORT_BLIT_LINE_INCREMENT = width_in_bytes;
   PORT_BLIT_PALETTE_START = (uint16_t)(palette_table);
 
@@ -255,7 +272,7 @@ void drawImageData(uint16_t x, uint8_t y, uint8_t width_in_bytes, uint8_t height
 
   setPixelCursor(x,y);
 
-  PORT_DISPLAY_CONTROL = mode;
+  PORT_BLIT_CONTROL = mode;
 }
 
 int main (void)
@@ -270,7 +287,7 @@ int main (void)
 
   uint16_t data = 0;
   uint8_t lastTime = 5;
-  uint8_t mode = 0x74;
+  uint8_t mode = BLITCON_BLIT_8;
     for (;;)  {
       uint8_t now = PORT_TIME;
       uint8_t nextStep = now>lastTime;
@@ -278,7 +295,7 @@ int main (void)
 
       if (nextStep) {
         mode+=1;
-        if (mode > 0x74) mode=0x71;
+        if (mode > BLITCON_BLIT_2) mode=BLITCON_BLIT_8;
       }
 
 
@@ -315,7 +332,7 @@ int main (void)
 
       //set pixel 120,90 in the framebuffer to 2 (White)
       setPixelCursor(120,90);
-      PORT_SERIAL_PIXEL_SET = 2;
+      PORT_SERIAL_PIXEL_ADD = 2;
 
       writeRect(40,20,32,32,43);
 
@@ -355,14 +372,14 @@ int main (void)
       }
 
       //read the mouse location
-      uint16_t x=PORT_MOUSEX;
-      uint16_t y=PORT_MOUSEY;
+      uint16_t x=PORT_MOUSE_X;
+      uint16_t y=PORT_MOUSE_Y;
 
 
       drawImageData(x,y,3,16,arrow,arrowPal,0x72,0);
 
       //put frame onscreen in lowres
-      PORT_DISPLAY_CONTROL=0x00;
+      PORT_DISPLAY_CONTROL=DC_SHOW_DISPLAY;
     }
     return (0);
 }

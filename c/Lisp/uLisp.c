@@ -1714,7 +1714,7 @@ char *lookupstring (unsigned int name) {
 
 // Main evaluator
 uint8_t readConsole() {
-  return PORT_CONSOLE;
+  return PORT_KEY_BUFFER;
 }
 
 unsigned int Canary = 0xA5A5;

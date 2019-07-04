@@ -1,10 +1,9 @@
 
 #include <stdbool.h>
 
-#include "hwio.h"
+#include "../common/hwio.h"
+#include "../common/simplegfx.h"
 
-
-const char hexDigits[] PROGMEM = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
 
 const uint8_t arrowPal[] = {0x00,0x21,0x23,0x45,0x67,0x89,0xab,0xcd};
 const uint8_t arrow[] = {  20,0,0,105,64,0,106,148,0,106,169,64,106,170,144,106,170,64,106,169,0,106,169,0,105,170,64,20,106,144,0,106,164,0,26,169,0,26,169,0,6,164,0,6,144,0,1,64  };
@@ -31,48 +30,40 @@ uint8_t aNum = 5;
 
 uint8_t voiceNumber = 0;
 
+TextPage_t page_data;
+TextPage_t* page = &page_data; 
+
 void updateVoice_basic() {
+  
   PORT_VOICE_FREQ=freq;
   PORT_VOICE_VOLUME = vol;
   PORT_VOICE_WAVE_SHAPE = waveBase | (waveShift << 4);
   PORT_VOICE_BEND_WAVE = bendDuration | (bendPhase <<5);
   PORT_VOICE_BEND_AMPLITUDE = bendAmplitude;
   PORT_VOICE_NOISE_HOLD = noise | (hold <<4);  
+   
 }
 void updateVoice() {
   updateVoice_basic();
   //writing to attack_release register triggers envelope cycle 
   PORT_VOICE_ATTACK_RELEASE = attack + (release << 4);
 }
-void drawImageData(uint16_t x, uint8_t y, uint8_t width_in_bytes, uint8_t height, const  uint8_t* image,const uint8_t* palette_table, uint8_t mode, uint8_t flags) {
-  PORT_BLIT_IMAGE_START  = (uint16_t)(image);
-  PORT_BLIT_BYTES_WIDE  = width_in_bytes;
-  PORT_BLIT_HEIGHT = height;
-  PORT_BLIT_LINE_INCREMENT = width_in_bytes;
-  PORT_BLIT_PALETTE_START = (uint16_t)(palette_table);
 
-  PORT_BLIT_FLAGS  = flags;
-
-  setPixelCursor(x,y);
-
-  PORT_DISPLAY_CONTROL = mode;
+char hexDigit(uint8_t val) {
+  if (val < 10) return val+48;
+  if (val < 16) return val+55; 
+  return '_';
 }
-
-void waitForNewFrame() {
-  uint8_t ticksOnEntry = PORT_TICK;
-  while(ticksOnEntry==PORT_TICK);
-}
-
 
 void drawByteAsHex(uint16_t x, uint16_t y, uint8_t value, uint8_t color) {
-  renderChar(x,y,pgm_read_byte(&hexDigits[value >> 4]),color,0x4000,44 , 20);
-  renderChar(x+1,y,pgm_read_byte(&hexDigits[value & 0x0f]),color,0x4000, 44 ,20);
+  write_char_xy(x,y,hexDigit(value >> 4),color,page);
+  write_char_xy(x+1,y,hexDigit(value & 0x0f),color,page);
 }
 
 void drawByteAsDec(uint16_t x, uint16_t y, uint8_t value, uint8_t color) {
   x+=3;
   do {
-    renderChar(x,y,pgm_read_byte(&hexDigits[value %10]),color,0x4000,44 , 20);
+    write_char_xy(x,y,hexDigit(value % 10),color,page);
     x-=1;
     value/=10;
   } while (value>0);
@@ -109,127 +100,101 @@ uint16_t isqrt(uint16_t value)
 int main (void)
 {
   SP=0xffff;
+  page_data = makeTextPage(0xC000,40,20,0,0);
 
-  const int pageBase=0x4000;
-  const int charsWide=44;
-  const int charsHigh=20;
-
-  const int pageEnd=pageBase+charsWide*charsHigh*6*2; //char cell is 6 bytes for pixels and  6 bytes for colour
 
   
   uint16_t data = 0;
   uint8_t lastTime = 5;
-  uint8_t mode = 0x74;
   
   uint8_t currentLine = 0;
   uint16_t oldButtons =0; 
 
     for (;;)  {
-      waitForNewFrame();
+      wait_frame();
       uint8_t now = PORT_TIME;
       uint8_t nextStep = now>lastTime;
       lastTime=now;
 
-      if (nextStep) {
-        mode+=1;
-        if (mode > 0x74) mode=0x71;
-      }
-
-
-      //fill some memory with some changing data
-      uint16_t* walk = (uint16_t*)(pageBase);
-      walk=(uint16_t*)(pageBase);
-  	  while (walk < (uint16_t*)(pageEnd)) {
-    	   *walk++=data++;
-
-         data=0;
-      }
-
       // write some text into the page
-      renderProgMemString(18,2,PSTR("Audio Test"),0x0f,pageBase,charsWide ,charsHigh);
+      write_romstring_xy(16,1,PSTR("Audio Test"),0x0f,page);
 
-      //renderProgMemString(10,15,PSTR("PORT $4C  Frame Ticker"),0x02,pageBase,charsWide ,charsHigh);
-      //renderProgMemString(10,16,PSTR("PORT $4D  Second Ticker "),0x02,pageBase,charsWide ,charsHigh);
+      write_romstring_xy(5,3,PSTR("Frequency "),0x0f,page);
+      drawByteAsHex(36,3,freq>>8,0x0f);
+      drawByteAsHex(38,3,freq,0x0f);
 
+      write_romstring_xy(8,4,PSTR("Volume "),0x0E,page);
+      drawByteAsHex(38,4,vol,0x0E);
 
-      renderProgMemString(7,5,PSTR("Frequency "),0x0f,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(38,5,freq>>8,0x0f);
-      drawByteAsHex(40,5,freq,0x0f);
+      write_romstring_xy(5,5,PSTR("Wave Base "),0x08,page);
+      drawByteAsHex(38,5,waveBase,0x08);
 
-      renderProgMemString(10,6,PSTR("Volume "),0x0E,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,6,vol,0x0E);
+      write_romstring_xy(4,6,PSTR("Wave Shift "),0x08,page);
+      drawByteAsHex(38,6,waveShift << 4,0x08);
 
-      renderProgMemString(7,7,PSTR("Wave Base "),0x08,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,7,waveBase,0x08);
-
-      renderProgMemString(6,8,PSTR("Wave Shift "),0x08,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,8,waveShift << 4,0x08);
-
-      renderProgMemString(3,9,PSTR("Bend Duration "),0x06,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,9,bendDuration,0x06);
+      write_romstring_xy(1,7,PSTR("Bend Duration "),0x06,page);
+      drawByteAsHex(38,7,bendDuration,0x06);
       
-      renderProgMemString(6,10,PSTR("Bend Phase "),0x07,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,10,bendPhase<<5,0x07);
+      write_romstring_xy(4,8,PSTR("Bend Phase "),0x07,page);
+      drawByteAsHex(38,8,bendPhase<<5,0x07);
 
-      renderProgMemString(6,11,PSTR("Bend Depth "),0x07,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,11,bendAmplitude,0x07);
+      write_romstring_xy(4,9,PSTR("Bend Depth "),0x07,page);
+      drawByteAsHex(38,9,bendAmplitude,0x07);
 
-      renderProgMemString(11,12,PSTR("Noise "),0x0a,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,12,noise,0x0a);
+      write_romstring_xy(9,10,PSTR("Noise "),0x0a,page);
+      drawByteAsHex(38,10,noise,0x0a);
 
-      renderProgMemString(12,13,PSTR("Hold "),0x0a,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,13,hold << 4,0x0a);
+      write_romstring_xy(10,11,PSTR("Hold "),0x0a,page);
+      drawByteAsHex(38,11,hold << 4,0x0a);
 
-      renderProgMemString(10,14,PSTR("Attack "),0x0b,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,14,attack,0x0b);
+      write_romstring_xy(8,12,PSTR("Attack "),0x0b,page);
+      drawByteAsHex(38,12,attack,0x0b);
 
-      renderProgMemString(9,15,PSTR("Release "),0x0b,pageBase,charsWide ,charsHigh);
-      drawByteAsHex(40,15,release << 4,0x0b);
+      write_romstring_xy(7,13,PSTR("Release "),0x0b,page);
+      drawByteAsHex(38,13,release << 4,0x0b);
 
-      //drawByteAsDec(13,2,PORT_MOUSEX);
-      //drawByteAsDec(15,2,PORT_MOUSEY);
+      drawByteAsHex(34,0,PORT_TICK,12);
+      drawByteAsHex(37,0,PORT_TIME,12);
 
-      aNum=hold;
-      //drawByteAsHex(14,4,aNum & 0xff);
-
-      drawByteAsHex(36,2,PORT_TICK,12);
-      drawByteAsHex(39,2,PORT_TIME,12);
-
+      drawByteAsHex(0,0,PORT_MOUSE_X,0x0b);
+      drawByteAsHex(0,1,PORT_MOUSE_Y,0x0b);
       //transfer the page of 3x3 cells to the frameBuffer
       //this operation sets all pixels in the output frameBuffer
-      renderMode0(pageBase,charsWide*2,charsHigh*3);
 
-
-      fillRect(108,47,1+(isqrt(freq) >> 1),4,15);
-      fillRect(108,56,1+(vol >> 1),4,14);
-      fillRect(108,65,1+(waveBase << 3),4,8);
-      fillRect(108,74,1+(waveShift << 3),4,8);
-      fillRect(108,83,1+(bendDuration<<2),4,6);
-      fillRect(108,92,1+(bendPhase<<4),4,7);
-      fillRect(108,101,1+(bendAmplitude >>1),4,7);
-      fillRect(108,110,1+(noise << 3),4,10);
-      fillRect(108,119,1+(hold << 3),4,10);
-      fillRect(108,128,1+(attack<<3),4,11);
-      fillRect(108,137,1+(release <<3),4,11);
+      renderMode0(16,16,(uint16_t)page->cells.start,page->cells.width,page->cells.height);
 
       //read the mouse location and buttons
-      uint16_t mx=PORT_MOUSEX+15;
-      uint16_t my=PORT_MOUSEY+15;
+      uint16_t mx=PORT_MOUSE_X+16;
+      uint16_t my=PORT_MOUSE_Y+16;
+
       uint16_t buttons =  PORT_BUTTONS;
       uint16_t changes= oldButtons ^ buttons;
       uint16_t downs = changes & buttons;
       oldButtons=buttons;
 
-      
-      if ((downs & 0x2000) && pointInRect (mx,my, 108,47,128,9*11) ) {
-        uint8_t line=(my-47) /9;
-        if ( (my +1)%9 >2 ) {
+      if ( pointInRect (mx,my, 108,45,128,9*11) ) {
+        uint8_t line=(my-45) /9;
+        if ( (my +4)%9 >3 ) {
           currentLine=line;
         }
       }
 
+      serial_fill_rect(102,45,1+(isqrt(freq) >> 1),4,currentLine==0?3:15);
+      serial_fill_rect(102,54,1+(vol >> 1),4,currentLine==1?3:14);
+      serial_fill_rect(102,63,1+(waveBase << 3),4,currentLine==2?3:8);
+      serial_fill_rect(102,72,1+(waveShift << 3),4,currentLine==3?3:8);
+      serial_fill_rect(102,81,1+(bendDuration<<2),4,currentLine==4?3:6);
+      serial_fill_rect(102,90,1+(bendPhase<<4),4,currentLine==5?3:7);
+      serial_fill_rect(102,99,1+(bendAmplitude >>1),4,currentLine==6?3:7);
+      serial_fill_rect(102,108,1+(noise << 3),4,currentLine==7?3:10);
+      serial_fill_rect(102,117,1+(hold << 3),4,currentLine==8?3:10);
+      serial_fill_rect(102,126,1+(attack<<3),4,currentLine==9?3:11);
+      serial_fill_rect(102,135,1+(release <<3),4,currentLine==10?3:11);
+
+      
+
       if (buttons & 0x2000) {
-        int16_t value=mx-108;
+        int16_t value=mx-102;
         if (value < 0) value = 0;
         if (value >127)  value = 127;
         switch (currentLine) {
@@ -247,6 +212,7 @@ int main (void)
         }        
       } else currentLine = 0xff;
       uint8_t keyIndex = 0xff;
+      
       for (uint16_t tx=0;tx <28; tx++) {
           uint16_t left=24+tx*8;
           uint8_t color=2;
@@ -254,8 +220,9 @@ int main (void)
             color=1;
             keyIndex = tx *2;
           }
-          fillRect(left,150,7,40,color);
+          serial_fill_rect(left,150,7,40,color);
       }
+
       for (uint16_t tx=0;tx <28; tx++) {
           if ( ((tx%7) &3) !=2 ) {
             uint16_t left=24+tx*8+4;
@@ -264,7 +231,7 @@ int main (void)
               color=1;
               keyIndex = tx*2+1;
             }
-            fillRect(left,150,7,25,color);
+            serial_fill_rect(left,150,7,25,color);
           }
       }
 
@@ -276,16 +243,14 @@ int main (void)
           PORT_VOICE_SELECT = voiceNumber;
           updateVoice();
         }
-
       }
       
-
-
-      drawImageData(mx,my,3,16,arrow,arrowPal,0x72,0);
+      blit_image(mx,my,3,16,arrow,arrowPal,BLITCON_BLIT_4,0);
 
       //put frame onscreen in lowres
-      PORT_DISPLAY_SHIFT=0xff;
-      PORT_DISPLAY_CONTROL=0x00;
+      PORT_DISPLAY_SHIFT_X=16;
+      PORT_DISPLAY_SHIFT_Y=16;
+      PORT_DISPLAY_CONTROL=DC_SHOW_DISPLAY;
     }
     return (0);
 }
