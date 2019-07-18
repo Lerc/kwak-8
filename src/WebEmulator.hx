@@ -1,6 +1,7 @@
 package ;
 
 import HexFile.Chunk;
+import haxe.Timer;
 import js.Browser;
 import js.html.CanvasElement;
 import js.html.CanvasRenderingContext2D;
@@ -63,6 +64,11 @@ class WebEmulator extends Emulator
 	
 	    installPortIOFunctions();
 	
+		var halfsecondTimer = new Timer(500);
+
+		halfsecondTimer.run = function() { 
+			timeCounter = (timeCounter + 1) & 0x1ff;
+		};
 
         displayCanvas.addEventListener("drop", handleFileDrop);
 		displayCanvas.addEventListener("dragover",  function (evt) {

@@ -190,7 +190,6 @@ class EmulatortHost extends WebEmulator
 		halfsecondTimer.run = function() { 
 			var clocksPassed = avr.clockCycleCount - lastTime;
 			lastTime = avr.clockCycleCount;
-			timeCounter = (timeCounter + 1) & 0x1ff;
 			if (!halted) updateRegisterView();
 			clockSpeedDiv.innerHTML = floatText(Math.round(clocksPassed / 500) / 1000) + "<small> MHz</small>";	
 		};
