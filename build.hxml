@@ -1,0 +1,14 @@
+-cp src
+-js bin/avr.js
+-D js-es=6
+-main Main
+-resource c/simple/minimal.hex@minimalc
+-resource c/hello/hello.hex@hello 
+-resource c/BlitTest/BlitTest.hex@blitTest
+-resource c/AudioTest/AudioTest.hex@audioTest
+-resource c/InputTest/InputTest.hex@inputTest 
+-resource c/PixelTest/PixelTest.hex@pixelTest 
+-resource c/Lisp/Lisp.hex@Lisp
+-dce full
+
+
