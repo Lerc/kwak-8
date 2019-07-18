@@ -1,9 +1,7 @@
 
 
 
-#include "hwio.h"
-
-
+#include "../common/hwio.h"
 
 const uint8_t arrowPal[] = {0x00,0x21,0x23,0x45,0x67,0x89,0xab,0xcd};
 const uint8_t arrow[] = {  20,0,0,105,64,0,106,148,0,106,169,64,106,170,144,106,170,64,106,169,0,106,169,0,105,170,64,20,106,144,0,106,164,0,26,169,0,26,169,0,6,164,0,6,144,0,1,64  };
@@ -12,20 +10,6 @@ const uint8_t spaceship_palette[] = {0x0D,0xEF,0x85,0x67,0x89,0xab,0x2D,0xEF};
 const uint8_t spaceship_data[] = {0,0,0,1,32,0,0,0,0,0,0,5,56,0,0,0,0,0,0,5,56,0,0,0,0,0,0,5,56,0,0,0,0,24,0,5,56,0,6,0,1,32,0,21,58,0,1,32,5,32,0,21,30,0,1,24,5,32,0,21,30,0,1,24,5,24,0,21,30,0,5,24,217,24,0,21,214,0,5,220,219,22,1,212,202,32,21,236,219,21,17,219,241,33,21,236,6,245,21,219,241,21,214,60,1,21,21,219,241,21,21,32,0,91,21,239,252,21,91,0,0,108,0,26,43,0,108,0 };
 
 uint8_t palette[] = {0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef};
-uint8_t testSprite[] =
-{ 0b00000110,0b00111111,0b00000011,0b00011011,
-  0b00000110,0b00111111,0b00000011,0b00011011,
-  0b00000110,0b00111111,0b00000011,0b00011011,
-  0b01000110,0b01111111,0b01000011,0b01011011,
-  0b01000110,0b01111111,0b01000011,0b01011011,
-  0b01000110,0b01111111,0b01000011,0b01011011,
-  0b10000110,0b10111111,0b10000011,0b10011011,
-  0b10000110,0b10111111,0b10000011,0b10011011,
-  0b10000110,0b10111111,0b10000011,0b10011011,
-  0b11000110,0b11111111,0b11000011,0b11011011,
-  0b11000110,0b11111111,0b11000011,0b11011011,
-  0b11000110,0b11111111,0b11000011,0b11011011
-};
 
 
 uint16_t tileset_palettes[] = {
@@ -38,49 +22,23 @@ uint16_t tileset[] = {
 
 uint16_t tileMap[32*25];
 
-void testBlit(uint16_t x, uint8_t y,uint8_t mode, uint8_t flags) {
 
-    PORT_BLIT_IMAGE_START  = (uint16_t)(&testSprite);
-    PORT_BLIT_BYTES_WIDE  = 4;
-    PORT_BLIT_HEIGHT = 12;
-    PORT_BLIT_LINE_INCREMENT = 4;
-    PORT_BLIT_PALETTE_START = (uint16_t)(&palette);
-
-    PORT_BLIT_FLAGS  = flags;
-
-    setPixelCursor(x,y);
-
-    PORT_DISPLAY_CONTROL = mode;
-
-}
-
-void drawImageData(uint16_t x, uint8_t y, uint8_t width_in_bytes, uint8_t height, const  uint8_t* image,const uint8_t* palette_table, uint8_t mode, uint8_t flags) {
-  PORT_BLIT_IMAGE_START  = (uint16_t)(image);
-  PORT_BLIT_BYTES_WIDE  = width_in_bytes;
-  PORT_BLIT_HEIGHT = height;
-  PORT_BLIT_LINE_INCREMENT = width_in_bytes;
-  PORT_BLIT_PALETTE_START = (uint16_t)(palette_table);
-
-  PORT_BLIT_FLAGS  = flags;
-
-  setPixelCursor(x,y);
-
-  PORT_DISPLAY_CONTROL = mode;
-}
 
 void blitTile(uint16_t x,uint8_t y,uint8_t tile, uint8_t attribute) {
   uint16_t* tileAddr = tileset + tile*8;
   uint16_t* paletteAddr = tileset_palettes + (attribute&0x0f);
 
-  drawImageData(x,y, 2,8, (uint8_t*) (tileAddr), (uint8_t*) (paletteAddr), 0x72,attribute &0xc0);
+  blit_image(x,y, 2,8, (uint8_t*) (tileAddr), (uint8_t*) (paletteAddr), BLITCON_BLIT_4,attribute &0xc0);
 }
 void renderMode1(void* tileData, void* mapData, void* paletteData, uint16_t map_width_in_bytes,  uint8_t shiftX, uint8_t shiftY) {
-    PORT_MODE1_TILE_IMAGE_START = (uint16_t) tileData;
-    PORT_MODE1_MAP_DATA_START = (uint16_t) mapData;
-    PORT_MODE1_PALETTES_START = (uint16_t) paletteData;
-    PORT_MODE1_MAP_LINE_INCREMENT= map_width_in_bytes >> 3;
-    PORT_MODE1_SHIFT = (shiftX<<4) | (shiftY & 0x0f);
-    PORT_DISPLAY_CONTROL=0x81;
+  
+    PORT_MODE1_TILE_DATA = (uint16_t) tileData;
+    PORT_MODE1_MAP_DATA = (uint16_t) mapData;
+    PORT_MODE1_PALETTE_DATA = (uint16_t) paletteData;
+    PORT_MODE1_LINE_INCREMENT= map_width_in_bytes >> 1;
+    PORT_MODE1_SIZE = 0xFC;
+    setPixelCursor(shiftX,shiftY);
+    PORT_BLIT_CONTROL=BLITCON_MODE_1;
 }
 
 void waitForNewFrame() {
@@ -98,8 +56,8 @@ void setMap() {
   }
 }
 
-#define panel_top 160
-#define panel_left 15
+#define panel_top 140
+#define panel_left 0
 
 #define tile_palette_top  panel_top+1
 #define tile_palette_left panel_left+3
@@ -138,7 +96,7 @@ void set_palette_tile_color(uint8_t tileid, uint8_t color) {
 
 
 int16_t screen_to_palette_tile(int16_t x, int16_t y) {
-  x-=tile_palette_left-3;
+  x-=tile_palette_left-1;
   y-=tile_palette_top-1;
   int16_t tile_x = (x/9);
   int16_t tile_y = (y/9);
@@ -150,22 +108,22 @@ int16_t screen_to_palette_tile(int16_t x, int16_t y) {
 
 uint8_t palette_to_tileid(uint8_t x, uint8_t y) {
   uint16_t tilex= (palette_offset_x +x) % tileset_width;
-  uint8_t halfskip= ((palette_offset_x +x) /tileset_width) * (tileset_height/2);
+  uint8_t halfskip= 0;//((palette_offset_x +x) /tileset_width) * (tileset_height/2);
   uint16_t tiley= ((palette_offset_y + y +halfskip)) % tileset_height  ;
   return tilex+tiley*tileset_width;
 }
 
 
 void blitTilePalette( ) {
-  serial_fillRect(panel_left,panel_top,240,35,1);
+  serial_fill_rect(panel_left,panel_top,240,35,1);
 
-  serial_fillRect(tile_palette_left+(tile_a_x*9)-1,tile_palette_top+(tile_a_y*9)-1,10,10,7);
+  serial_fill_rect(tile_palette_left+(tile_a_x*9)-1,tile_palette_top+(tile_a_y*9)-1,10,10,7);
 
   for (uint8_t ty=0; ty<4; ty++){
     for (uint8_t tx =0 ;tx < 26; tx++) {
       uint8_t tileid = palette_to_tileid(tx,ty);
       uint8_t colour = get_palette_tile_color(tileid);
-      if (tileid==erase_tile) serial_fillRect(tile_palette_left+tx*9-1,tile_palette_top+ty*9-1,10,10,3);
+      if (tileid==erase_tile) serial_fill_rect(tile_palette_left+tx*9-1,tile_palette_top+ty*9-1,10,10,3);
       blitTile(tile_palette_left+tx*9,tile_palette_top+ty*9,tileid,colour);
     }
   }
@@ -215,8 +173,8 @@ int main (void)
     for (;;)  {
       waitForNewFrame();
       //read the mouse location
-      uint16_t mouse_x=PORT_MOUSEX;
-      uint16_t mouse_y=PORT_MOUSEY;
+      uint16_t mouse_x=PORT_MOUSE_X;
+      uint16_t mouse_y=PORT_MOUSE_Y;
 
       uint16_t tile_x = mouse_x / 8;
       uint16_t tile_y = mouse_y / 8;
@@ -225,7 +183,7 @@ int main (void)
       int16_t ptile = screen_to_palette_tile(mouse_x,mouse_y);
       uint8_t tileid=palette_to_tileid(ptile>>8,ptile&0xff);
 
-      uint8_t ch = PORT_CONSOLE;
+      uint8_t ch = PORT_KEY_BUFFER;
       switch (ch) {
         case 'a':
             translateTilePalette(-1,0);
@@ -289,27 +247,29 @@ int main (void)
       }
 
       renderMode1(tileset,tileMap,tileset_palettes,32*2,0,0);
-
-      for (uint16_t b=0;b <16; b++) {
-          serial_fillRect(100+b*6,30,5,5,(buttons & (1<<b))?2:1);
-      }
-
       blitTilePalette();
+/*
+      for (uint16_t b=0;b <16; b++) {
+          serial_fill_rect(100+b*6,30,5,5,(buttons & (1<<b))?2:1);
+      }
       //write a grid of rectangles showing the serial pixel output palette
       for (uint16_t ty=0;ty <4; ty++) {
         for (uint16_t tx=0;tx <4; tx++) {
-          serial_fillRect(200+tx*6,20+ty*6,5,5,(ty<<2)+tx);
+          serial_fill_rect(200+tx*6,20+ty*6,5,5,(ty<<2)+tx);
         }
       }
 
+ */
 
-      drawImageData(mouse_x-1,mouse_y-1,3,16,arrow,arrowPal,0x72,0);
-      serial_fillRect(mouse_x,0,1,195,1);
-      serial_fillRect(0,mouse_y,255,1,1);
+      blit_image(mouse_x-1,mouse_y-1,3,16,arrow,arrowPal,BLITCON_BLIT_4,0);
+      serial_fill_rect(mouse_x,0,1,195,1);
+      serial_fill_rect(0,mouse_y,255,1,1);
 
       //put frame onscreen in lowres
-      PORT_DISPLAY_SHIFT=0xff;
-      PORT_DISPLAY_CONTROL=0x00;
+      PORT_DISPLAY_SHIFT_X=0;
+      PORT_DISPLAY_SHIFT_Y=0;
+      
+      PORT_DISPLAY_CONTROL=DC_SHOW_DISPLAY;
     }
     return (0);
 }

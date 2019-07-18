@@ -172,7 +172,8 @@ void scroll_text_page(TextPage_t* page) {
 
 void write_char_mode0(uint16_t* top_left_cell, uint8_t ch, uint8_t attribute, uint8_t next_line) {
   uint8_t* cell = (uint8_t*) top_left_cell;
-
+  if (ch < 32) return;
+  
   uint8_t character = ch-32;
   *(cell + 0)=pgm_read_byte(&font[character][0]);
   *(cell + 1)=attribute;
@@ -220,7 +221,7 @@ void write_ramstring_xy(uint8_t x, uint8_t y,const char* s, uint8_t attribute,  
 void write_char(uint8_t ch, TextPage_t* page) {
   write_char_xy(page->cursor_x,page->cursor_y,ch,page->attribute,page);
   page->cursor_x+=1;
-  if ( (ch==13) || (page->cursor_x >= page->width) ) {
+  if ( (ch==10) || (page->cursor_x >= page->width) ) {
     page->cursor_x=0;
     page->cursor_y+=1;
     if (page->cursor_y >= page->height) {
@@ -245,3 +246,5 @@ void write_ramstring(const char* s, TextPage_t* page) {
     s+=1;
   }
 }
+
+

@@ -1,9 +1,9 @@
 
 #include <stdlib.h>
 
-#include "hwio.h"
+#include "../common/hwio.h"
 
-#include "simplegfx.h"
+#include "../common/simplegfx.h"
 
 
 
@@ -72,32 +72,14 @@ void println(const char* s) {
 }
 
 void show() {
-  renderMode0((uint16_t)page.cells.start,page.cells.width,page.cells.height);
+  renderMode0(0,0,(uint16_t)page.cells.start,page.cells.width,page.cells.height);
 
-  PORT_DISPLAY_SHIFT=0xee;
-  PORT_DISPLAY_CONTROL=0x00;
+  PORT_DISPLAY_SHIFT_X=14;
+  PORT_DISPLAY_SHIFT_Y=14;
+  
+  PORT_DISPLAY_CONTROL=DC_SHOW_DISPLAY;
 
 }
-
-void drawImageData(uint16_t x, uint8_t y, uint8_t width_in_bytes, uint8_t height, const  uint8_t* image,const uint8_t* palette_table, uint8_t mode, uint8_t flags) {
-  PORT_BLIT_IMAGE_START  = (uint16_t)(image);
-  PORT_BLIT_BYTES_WIDE  = width_in_bytes;
-  PORT_BLIT_HEIGHT = height;
-  PORT_BLIT_LINE_INCREMENT = width_in_bytes;
-  PORT_BLIT_PALETTE_START = (uint16_t)(palette_table);
-
-  PORT_BLIT_FLAGS  = flags;
-
-  setPixelCursor(x,y);
-
-  PORT_DISPLAY_CONTROL = mode;
-}
-
-void waitForNewFrame() {
-  uint8_t ticksOnEntry = PORT_TICK;
-  while(ticksOnEntry==PORT_TICK);
-}
-
 
 void drawByteAsHex(uint16_t x, uint16_t y, uint8_t value) {
   write_char_xy(x,y,pgm_read_byte(&hexDigits[value >> 4]),0x0B,&page);
@@ -187,8 +169,8 @@ int main (void)
 
   uint16_t data = 0;
   uint8_t lastTime = 5;
-  uint8_t lastX=PORT_MOUSEX;
-  uint8_t lastY=PORT_MOUSEY;
+  uint8_t lastX=PORT_MOUSE_X;
+  uint8_t lastY=PORT_MOUSE_Y;
 
   //clear the space we will use as screen memory
   uint16_t* walk = page.cells.start;
@@ -206,47 +188,8 @@ int main (void)
   show();
   setup();
 
-    loop();
-
-  page.cursor_y=19;
+  loop();
 
 
-  for (;;)  {
-      waitForNewFrame();
-      uint8_t now = PORT_TIME;
-      uint8_t nextStep = now>lastTime;
-      lastTime=now;
-
-      uint8_t c = PORT_CONSOLE;
-      if (c) {
-        write_char( c, &page);
-        drawByteAsHex(10,10,c);
-      }
-
-      if (nextStep) {
-      //  write_char( (now & 0x1f) +64, &page) ;
-      }
-
-      // write some text into the page
-      write_romstring_xy(3,4,PSTR("PIXEL TEST"),0x0f,&page);
-
-      //transfer the page of 3x3 cells to the frameBuffer
-      //this operation sets all pixels in the output frameBuffer
-      renderMode0((uint16_t)page.cells.start,page.cells.width,page.cells.height);
-
-
-      //read the mouse location
-
-      uint16_t x=PORT_MOUSEX;
-      uint16_t y=PORT_MOUSEY;
-      line(x,y,lastX,lastY,now&0xf);
-      lastX=x;
-      lastY=y;
-      //drawImageData(x,y,3,16,arrow,arrowPal,0x72,0);
-      drawImageData(x-7,y-6,2,13,crosshair,crosshairPal,0x71,0);
-      //put frame onscreen in lowres
-      PORT_DISPLAY_SHIFT=0xee;
-      PORT_DISPLAY_CONTROL=0x00;
-    }
-    return (0);
+  return (0);
 }
