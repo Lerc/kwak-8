@@ -118,19 +118,23 @@ class Display
 		} 		
 	}
 
+	inline function addRGB(pixelAddress,color) {
+		var byteAddress = pixelAddress*4;
+		imageData.data[byteAddress] += color & 0xff;
+		imageData.data[byteAddress+1] += (color>>8) & 0xff;
+		imageData.data[byteAddress+2] += (color>>16) & 0xff; 
+	}
+
 	inline public function serialAdd(value) {
 		if (baseAdd) {
 			pixelData[serialPixelAddress] = palette[serialBaseColor];
 		}
-		var byteAddress = serialPixelAddress * 4;
-		var color = palette[value];
-		imageData.data[byteAddress] += color & 0xff;
-		imageData.data[byteAddress+1] += (color>>8) & 0xff;
-		imageData.data[byteAddress+2] += (color>>16) & 0xff; 
+		addRGB(serialPixelAddress,palette[value]);
 		if (incOnAdd) {
 			incSerialPixelAddress(1);
 		} 		
 	}
+
 
 	inline public function serialSub(value) {
 		if (baseSub)  {
@@ -294,12 +298,17 @@ class Display
 					var pix = (byte & 0xF0) >> 4;
 					byte = byte << 4;   
 					var mainPaletteIndex = smallPalette[pix];
-					if ( (pix | mainPaletteIndex)  != 0 ) {
+					if (pix != mainPaletteIndex ) {
 						pixelData[destWalk] = palette[mainPaletteIndex];
 						if (doubleX) {
 							pixelData[destWalk+1] = palette[mainPaletteIndex];
 						}
-					} 
+					} else {
+						addRGB(destWalk,palette[mainPaletteIndex]);
+						if (doubleX) {
+							addRGB(destWalk+1,palette[mainPaletteIndex]);							
+						}
+					}
 					destWalk += nextPixel;
 				}
 			}
@@ -323,10 +332,15 @@ class Display
 					var pix = (byte & 0x30) >> 4;
 					byte = byte << 2;   
 					var mainPaletteIndex = smallPalette[microPalette+pix];
-					if ( (pix | mainPaletteIndex)  != 0 ) {
+					if (pix != mainPaletteIndex ) {
 						pixelData[destWalk] = palette[mainPaletteIndex];
 						if (doubleX) {
 							pixelData[destWalk+1] = palette[mainPaletteIndex];
+						}
+					} else {
+						addRGB(destWalk,palette[mainPaletteIndex]);
+						if (doubleX) {
+							addRGB(destWalk+1,palette[mainPaletteIndex]);							
 						}
 					}
 					destWalk += nextPixel;
@@ -351,12 +365,18 @@ class Display
 					var pix = (byte & 0xC0) >> 6;
 					byte = byte << 2;   
 					var mainPaletteIndex = smallPalette[pix];
-					if ( (pix | mainPaletteIndex)  != 0 ) {
+					if ( pix != mainPaletteIndex ) {
 						pixelData[destWalk] = palette[mainPaletteIndex];
 						if (doubleX) {
 							pixelData[destWalk+1] = palette[mainPaletteIndex];
 						}
+					} else {
+						addRGB(destWalk,palette[mainPaletteIndex]);
+						if (doubleX) {
+							addRGB(destWalk+1,palette[mainPaletteIndex]);							
+						}
 					}
+	
 					destWalk += nextPixel;
 				}
 			}
@@ -378,10 +398,15 @@ class Display
 					var pix = (byte & 0x80) >> 7;
 					byte = byte << 1;   
 					var mainPaletteIndex = smallPalette[pix];
-					if ( (pix | mainPaletteIndex)  != 0 ) {
+					if ( pix != mainPaletteIndex ) {
 						pixelData[destWalk] = palette[mainPaletteIndex];
 						if (doubleX) {
 							pixelData[destWalk+1] = palette[mainPaletteIndex];
+						}
+					} else {
+						addRGB(destWalk,palette[mainPaletteIndex]);
+						if (doubleX) {
+							addRGB(destWalk+1,palette[mainPaletteIndex]);							
 						}
 					}
 					destWalk += nextPixel;
