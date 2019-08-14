@@ -331,7 +331,7 @@ Mode 1 parameters are
             Address in RAM of the Tile Set.  256*16 bytes (4k in total)
 
 
-#Audio
+# Audio
 
 There are 8 independant voice chennels available each with identical abilities.
 The voices provide a variety of base waveforms, Pitch Bend, an Attack/Hold/Release envelope and individual noise and volume control.
@@ -342,7 +342,7 @@ The Attack/Hold/Release cycle is triggered by writing to `0x57` Thus it is possi
 to play a 'canned' sound effect by writing to the eight voice registers in turn and
 upon witing the last value the sound will play.
 
-Voice registers are
+Voice registers are:
 
     0x50    Freq_L
     0x51    Freq_H 
