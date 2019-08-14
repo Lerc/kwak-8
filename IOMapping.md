@@ -246,6 +246,7 @@ For Blit formats `0x01...0x04` the Blitter parameters are the same with the only
 Blit Mode0 is a 3x3 cell mode where each cell is represented by two bytes.  Cells may use any 2 colours of 16.  
 
 The bits in the first byte define the 8 pixels in the 3x3 cell in the following order
+
 | | | |
 |-|-|-|
 |0|1|2|
@@ -257,6 +258,7 @@ The second byte provides two 4 bit indexes into the colour table indicating whic
 While the Bottom right corner is not bit addressable, all combinations of pixels are available in this format. Swapping the values Of Colour A and Colour B, while inverting the first byte,  results in a change to the bottom right pixel without changing the appearance of the rest of the cell.
 
 For instance for a cell in yellow (in palette entry 14) and blue(in palette entry 15) with this pattern
+
 | | | |
 |-|-|-|
 |Y|B|Y|
