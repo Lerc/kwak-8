@@ -2,11 +2,13 @@
 package ;
 import haxe.Int32;
 import js.lib.Int8Array;
+import js.lib.Int32Array;
 import js.lib.Uint16Array;
 import js.lib.Uint8Array;
 
 using StringTools;
 
+#if InstructionTable
 
 @:enum 
 abstract Instruction(Int) from Int to Int {
@@ -114,7 +116,7 @@ typedef DecodedInstruction = {
 }
 
 
-
+#end
 
 @:build( RegisterMacro.memoryMappedRegister("r0",0) )
 @:build( RegisterMacro.memoryMappedRegister("r1",1) )
@@ -159,12 +161,8 @@ class AVR8
 	public var ram(default, null) : Uint8Array;
 	var ramSigned : Int8Array;
 	var ramAsWords : Uint16Array;
-	var table : Array<DecodedInstructionFunction>= [for (i in 0...0xffff) null];
-	var decodedProgram : Array<DecodedInstruction>;
 
-	var decodeCacheUpdateRequired = true;
-
-	public var breakPoint : Int = 0xffff;
+	public var breakPoints (default,null) : Int32Array;
 	public var log : String = ""; 
 	public var progMem(default,null) : Uint16Array;
 	public var progMemAsBytes(default,null) : Uint8Array;
@@ -212,11 +210,18 @@ class AVR8
 	inline static var TIMER0_COMPB = 0x22;
 	inline static var TIMER0_OVF = 0x24;
 
-	
+#if InstructionTable	
+	var table : Array<DecodedInstructionFunction>= [for (i in 0...0xffff) null];
+	var decodedProgram : Array<DecodedInstruction>;
+
+	var decodeCacheUpdateRequired = true;
+
 	private var instructionFunctions : Map<Instruction,InstructionFn>;
-	
+#end
+
 	public function new() 
 	{		
+#if InstructionTable	
 		instructionFunctions = [ 
 			Instruction.nop => _nop ,
 			Instruction.cpse=> _cpse,
@@ -305,8 +310,11 @@ class AVR8
 			Instruction.not_an_instruction=> _not_an_instruction
 		];
 
-		trace("nop is",_nop);
-		trace("index of _call is",instructionFunctions[Instruction.call]);
+		for (i in 0...0xffff) {
+			table[i]=decodeInstruction(i,apply2);
+		}
+
+#end 
 		ram = new Uint8Array(65536);
 		ramSigned = new Int8Array(ram.buffer);
 		ramAsWords = new Uint16Array(ram.buffer);
@@ -314,9 +322,9 @@ class AVR8
 		progMem = new Uint16Array(65536);
 		progMemAsBytes = new Uint8Array(progMem.buffer);
 
-		for (i in 0...0xffff) {
-			table[i]=decodeInstruction(i,apply2);
-		}
+	//There's a degree of irony in how wasteful this to reserve 256k for breakpoint codes
+		breakPoints = new Int32Array(65536);
+
 	}
 	
 	public function clearRam() {
@@ -328,6 +336,7 @@ class AVR8
 	public function clearProgMem() {
 		for (i in 0...progMem.length) {
 			progMem[i] = 0;
+			breakPoints[i]=0;
 		}
 	}
 
@@ -352,13 +361,17 @@ class AVR8
 			 this.progMemAsBytes[startAddress + walk] = b;
 			 walk += 1;
 		 }
+#if InstructionTable		 
 		decodeCacheUpdateRequired=true;
+#end		
 	}
 	
+#if InstructionTable		 
 	function updateDecodeCache() {
 		decodedProgram = [for (i in progMem) decodeInstruction(i,simpleDecode)];
 		decodeCacheUpdateRequired=false;
 	}
+#end		
 
 	public inline function instructionLength(instruction : Int) :Int {
 		/*	1001 000d dddd 0000		LDS Rd,k (next word is rest of address)
@@ -501,7 +514,7 @@ class AVR8
 		
 	}
 
-	
+#if InstructionTable	
 inline	function _nop(_,__) {
 		clockCycleCount+=1; PC+=1;
 	}
@@ -1547,6 +1560,7 @@ inline	function _adiw(d,k) {
 		throw "shouldn't happen" + instruction;
 	}
 
+
 	public function compareExecutionModes() {
 		var initialState = new Uint8Array(65536);
 		initialState.set(ram);
@@ -1596,6 +1610,7 @@ inline	function _adiw(d,k) {
 		//ins.fn(ins.a,ins.b);
 
 	}
+#end
 
 	public function exec() {
 		var clocks = 1; //probably one clock
@@ -2296,14 +2311,15 @@ inline	function _adiw(d,k) {
 		}
 		return;
 		*/
+#if InstructionTable
 		if (decodeCacheUpdateRequired) updateDecodeCache();
-
+#end
 		var endTime = clockCycleCount + clockCycles;
 		for (i in 0...1000000000) {		
-			decodeCacheExec();
+			//decodeCacheExec();
 			//tableExec();
-			//exec();
-			if (PC == breakPoint) break;
+			exec();
+			if (breakPoints[PC]!=0) break;
 			if (clockCycleCount > endTime) break;
 		}
 	}
@@ -2763,7 +2779,7 @@ inline	function _adiw(d,k) {
 	}
 
 
-
+#if InstructionTable
 	function execDecodedInstruction(opcode,a,b) {
 
 		switch (opcode) {
@@ -2854,7 +2870,7 @@ inline	function _adiw(d,k) {
 			case Instruction.not_an_instruction: _not_an_instruction(a,b);
 		}
 	}
-
+#end 
 }
 
 

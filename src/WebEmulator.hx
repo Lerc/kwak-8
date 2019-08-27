@@ -38,7 +38,7 @@ class WebEmulator extends Emulator
 	var tickCounter : Int = 0;
 	var timeCounter : Int = 0;
 
-	var debugContext : Dynamic = null;
+	public var debugInfo(default,null) : Dynamic = null;
 
     public var playerDiv : DivElement;
 	public function new() 
@@ -99,6 +99,7 @@ class WebEmulator extends Emulator
 			
     }
 
+
     override function initialize() {
         super.initialize();
         Browser.window.requestAnimationFrame(handleAnimationFrame); 
@@ -116,7 +117,7 @@ class WebEmulator extends Emulator
 		 	avr.tick(clockCyclesToEmulate);
 			var finish = Browser.window.performance.now(); 
 		}
-		if (avr.PC == avr.breakPoint) {
+		if (avr.breakPoints[avr.PC] != 0 ){
 			halted = true;
 		}
 		Browser.window.requestAnimationFrame(handleAnimationFrame);
@@ -163,7 +164,7 @@ class WebEmulator extends Emulator
 		reset();
 		avr.clearProgMem();
 		currentProgram=chunks;
-		debugContext=debugData;
+		debugInfo=debugData;
 		var totalData = 0;
 		for (chunk in chunks) {
 			avr.writeProgMem(chunk.address,chunk.data);			

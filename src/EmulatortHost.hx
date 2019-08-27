@@ -144,6 +144,12 @@ class EmulatortHost extends WebEmulator
 		resetButton.className = "reset button";
 		controlPanel.appendChild(resetButton);
 		
+
+		var fullscreenButton = Browser.document.createButtonElement();
+		fullscreenButton.textContent = "Full Screen";
+		fullscreenButton.className = "fullscreen button";
+		controlPanel.appendChild(fullscreenButton);
+
 		breakpointInput = Browser.document.createInputElement();
 		breakpointInput.placeholder = "breakpoint";
 		breakpointInput.type = "text";
@@ -158,7 +164,8 @@ class EmulatortHost extends WebEmulator
 		});
 		
 		muteButton = Browser.document.createButtonElement();
-		muteButton.textContent="🔈"; 
+		muteButton.className = "mute button";
+		muteButton.textContent="Audio 🔈"; 
 		muteButton.onclick= function() { muted= !muted; };
 		controlPanel.appendChild(muteButton);
 
@@ -169,6 +176,7 @@ class EmulatortHost extends WebEmulator
 		runButton.onclick = function(e) { halted = !halted; e.preventDefault(); };
 		stepButton.onclick = function() { if (halted) avr.exec(); updateDebugInfo(); };
 		resetButton.onclick = function (){ reset(); if (halted) {updateDebugInfo();} }; 
+		fullscreenButton.onclick = requestFullscreen;
 		loadHexFile(testProgram);
 
 		Browser.window.addEventListener("keydown", function (e : KeyboardEvent) {
@@ -331,7 +339,7 @@ class EmulatortHost extends WebEmulator
 	function updateDebugInfo() {
 		setDisassamblyView(avr.PC);
 		updateRegisterView();
-		onUpdateDebugInfo(debugContext);
+		onUpdateDebugInfo(debugInfo);
 	}
 	
 	override function reset() {
@@ -361,8 +369,18 @@ class EmulatortHost extends WebEmulator
 
 	override function handleMuteStateChange() {
 		super.handleMuteStateChange();
-		muteButton.textContent = muted?"🔇":"🔈"; 
+		muteButton.textContent = muted?"Audio 🔇":"Audio 🔈"; 
 
 	}
 
+	public function requestFullscreen() {
+		if(displayCanvas.requestFullscreen != null) {
+			displayCanvas.requestFullscreen();
+		} else {
+			var canvas:Dynamic=displayCanvas;
+			canvas.webkitRequestFullscreen();
+		}
+	
+	}
+	
 }
