@@ -388,8 +388,8 @@ Voice registers are:
 
     0x57    Play, Attack and Release Envelope control
 
-    	    low 4 bits for attack:
-        	high 4 bits for release:
+            low 4 bits for attack:
+            high 4 bits for release:
 
             Duration for both is (Int4_Value / 8)² Seconds
 
