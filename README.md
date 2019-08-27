@@ -59,47 +59,38 @@ Hardware Registers
 ------------------
 While the Instruction set is 8-bit AVR compatible.  The port mapped hardware is not intended to match any particular microcontroller.
 
-The main Display output control is on port 0x40.  Writing 0x00 to that port puts the framebuffer onscreen in lowres mode.  Writing 0x01 displays hires mode.
-Current Display control Operations are  
-```
-    0x00 = Show Lowres display  (240x160)
-    0x01 = Show Highres display (480x360);
-    0x71 = blit 8 pixels per byte
-    0x72 = blit 4 pixels per byte
-    0x73 = blit 3 pixels per byte
-    0x74 = blit 2 pixels per byte
-    0x80 = Generate Mode 0   (fill framebuffer with 1.777bit per pixel data ( 16 bits per 9 pixels) )
-```
-*The file IOMapping.txt lists all hardware ports.  Should there be an
-inconsistancy in the documentation,  IOMapping.txt should be taken as
+The main Display output control is at address 0x28.  Writing 0x00 to that port puts the framebuffer onscreen in lowres mode.  Writing 0x01 displays hires mode.
+
+*The file IOMapping.md lists all hardware ports.  Should there be an
+inconsistancy in the documentation,  IOMapping.md should be taken as
 the correct form.*
 
 You may write byte sized pixels (one of 256 colours in a fixed palette)
 to the framebuffer serially.
 Logically the frameBuffer is 512x392 and addressed with a 18 bit address in
-Ports 0x42,0x43,0x44  for SerialPixel address Low, Middle and High respectively.
+0x20,0x21,0x22  for SerialPixel address Low, Middle and High respectively.
 
-Writing to port 0x45 sets the pixel at the pixel adrress to the colour of the value
-written and advances the pixel address.
+Writing to addrwess 0x25 adds to the pixel at the pixel addrress to the colour of the value
 
-Writing to port 0x46 multiplies the pixel at the pixel adrress by the colour of the value
-written and **does not** advance the pixel address.\
+Writing to port 0x26 subtracts colour of the value from the pixel at the pixel addrress 
 
-Writing to port 0x47 adds the pixel at the pixel adrress to the colour of the value
-written and advances the pixel address.
+Writing to address 0x27 multiplies the pixel at the pixel addrress by the colour of the value
+
+An additional control register lets you use a constant base colour instead of the destination
+pixel as well as allowing auto increment on the pixel address when writing to any of the ADD MUL SUB  
 
 You cannot write directly from Program Memory to the display.  Serial output must
-be conveyed by the CPU. Display mode generators and blitting operations read from
+be conveyed by the CPU. Blitting operations can read from
 RAM.  Consequently, image data will usually be transferred from Program Memory
 to RAM before it can be actively used.
 
 Input
 -----
 
-Reading from ports 0x48 to 0x4f provides state based inputs
+Reading from ports 0x30 to 0x37 provides state based inputs
 
 ````
-  input base = 0x48
+  input base = 0x30
   button_state_0 = input base + 0  Left Up Right Down Enter Esc Ctrl Shift  
   button_state_1 = input base + 1  A W D S SPACE Mouse1 Mouse2 Mouse3
   mouseX = input base +2
@@ -108,5 +99,4 @@ Reading from ports 0x48 to 0x4f provides state based inputs
   timer  = input base +5   increments once per second
 ````
 
-A serial input buffer is planned for keydown/keyup events but as yet no port
-is assigned.
+
