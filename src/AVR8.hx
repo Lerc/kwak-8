@@ -156,6 +156,7 @@ typedef DecodedInstruction = {
 @:build( RegisterMacro.memoryMappedRegister("SPL", 93 ) )
 @:build( RegisterMacro.memoryMappedRegister("SPH", 94 ) )
 @:build( RegisterMacro.memoryMappedRegister("SREG",95 ) )
+@:expose
 class AVR8
 {
 	public var ram(default, null) : Uint8Array;
@@ -171,6 +172,8 @@ class AVR8
 	public var inPortFunctions : Array<Void->Int> = [ for (i in 0...255) null ];
 	
 	public var PC : Int = 0;
+	public var nextPC : Int = 0;
+
 	public var SP(get, set) : Int;
 	public var X(get, set) : Int;
 	public var Y(get, set) : Int;
@@ -179,6 +182,17 @@ class AVR8
 	public var clockCycleCount : Int = 0;
 	public var interruptDepth : Int = 0;
 	
+	static function __init__():Void {
+		#if js
+			var p = untyped AVR8.prototype;
+
+			untyped Object.defineProperty(p, "SP", { get: p.get_SP, set:p.set_SP});
+			untyped Object.defineProperty(p, "X", { get: p.get_X, set:p.set_X});
+			untyped Object.defineProperty(p, "Y", { get: p.get_Y, set:p.set_Y});
+			untyped Object.defineProperty(p, "Z", { get: p.get_Z, set:p.set_Z});
+   			
+		#end
+	}
 	public inline static var CFLAG = 0x01;
 	public inline static var ZFLAG = 0x02;
 	public inline static var NFLAG = 0x04;
@@ -355,7 +369,7 @@ class AVR8
 		reset();
 	}
 	
-	public function writeProgMem(startAddress : Int32, bytes : Array<Int>) {
+	public function writeProgMem(startAddress : Int32, bytes : Uint8Array) {
 		 var walk = 0;
 		 for (b in bytes) {
 			 this.progMemAsBytes[startAddress + walk] = b;
@@ -1614,9 +1628,8 @@ inline	function _adiw(d,k) {
 
 	public function exec() {
 		var clocks = 1; //probably one clock
-		var nextPC = PC + 1; //probably one word
+ 		nextPC= PC + 1; //probably one word
 		var instruction = progMem[PC];
-
 		switch (instruction & 0xf000) {
 			case 0x0000: {  //nop movw muls mulsu fmul fmuls fmulsu cpc sbc add 
 				switch (instruction & 0x0c00) { 
@@ -2560,7 +2573,7 @@ inline	function _adiw(d,k) {
 						//sbrc sbrs
 						var d = (instruction & 0x01f0) >> 4;
 						var skipOnClear = ((instruction & 0x0200) == 0);
-						result = (skipOnClear?'SBRC':'SBRS') + 'r$d,{instruction & 0x0007}';
+						result = (skipOnClear?'SBRC':'SBRS') + 'r$d,${instruction & 0x0007}';
 					}
 				}
 			}
