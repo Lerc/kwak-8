@@ -54,7 +54,8 @@
 |   0x50  | Voice Freq L                     |               |
 |   0x51  | Voice Freq H                     |               |
 |   0x52  | Voice Volume                     |               |
-|   0x53  | Voice Shape (Base:4 Shift:4)     |               |
+|   0x53  | Voice Shape (wave:4   shift:3    |               |
+|         |               modulate:1 )       |               |
 |   0x54  | Voice Bend (duration:5 phase:3)  |               |
 |   0x55  | Voice Bend Amplitude             |               |
 |   0x56  | Voice Noise:4  Hold:4            |               |
@@ -352,26 +353,39 @@ Voice registers are:
             Int8 value ranging from 0:silent  to 255:Max volume
             
     0x53    Wave Shape
-            Low 4 bits Wave Base: 
+            Low 4 bits ....xxxx Wave Base: 
             0000 square, 1000 = Sine, 1111 = Triangle.
             intermediate values interpolate.
             square and triangle waves are scaled to have same area
             under curve as Sine preserving volume
 
- 	        High 4 Bits Wave shift: 
-            1000 no shift, Applies a gamma curve in the time domain
+ 	        bits .xxx....  Wave shift: 
+            000 = no shift, Applies a gamma curve in the time domain
+
+            high bit x....... Modulate:
+                if set, this voice is silent, instead the output is muultiplied with the next voice 
 
     0x54    Pitch Bend
-    	    low 5 Bits: Bend Duration	 ((Int5_Value+1)/33)² * 30 Hz 
- 	        high 3 bits: Bend phase 000=0 100=Pi,   
+            low 5 Bits: bend Amplitude              
+                Frequency range of the bend.  
+                A value of 0 indicates no bend
+                A value of 31 will occilate frequency between 
+                    voice_freq - voice_freq/2
+                and 
+                    voice_freq + voice_freq/2
+    	    
+ 	        high 3 bits: Bend phase 000=0 100=Pi  111=2*PI/8*7,   
 
-    0x55    Bend Amplitude
-            Frequency range of the bend.  
-            A value of 0 indicates no bend
-            A value of 255 will occilate frequency between 
-                voice_freq - voice_freq/2
-            and 
-                voice_freq + voice_freq/2
+    0x55    Bend duration
+                 Occilation Frequency ((Uint8_Value+1)/8)² /2  Hz 
+                 A value of 0 results in a bend of 0.0078 Hz  (128 seconds for a full occilation wave)
+                 A value of 3 results in a bend of 0.125 Hz   (8 seconds for a full occilation wave)
+                 A value of 7 results in a bend of 0.5 Hz     (2 seconds  for a full occilation wave)
+                 A value of 10 results in a bend of 0.94 Hz   (1.05 seconds for a full occilation wave)
+                 A value of 31 results in a bend of 8 Hz     
+                 A value of 63 results in a bend of 32 Hz     
+                 A value of 127 results in a bend of 128 Hz     
+                 A value of 255 results in a bend of 512 Hz     
 
     0x56    Noise Level and Envelope Hold Duration 
 

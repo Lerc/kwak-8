@@ -78,11 +78,19 @@ class Audio
 
 		var data = out.getChannelData(0);			
 		for (i in 0...data.length){
-			var voiceSample=0.0;
+			var accumulatedSample = 0.0;
+			var modulator = 1.0;
+			var voiceSample = 0.0;
 			for (v in 0...8) { 	
-				voiceSample+=voices[v].nextSample();
+				voiceSample=voices[v].nextSample();
+				if (voices[v].modulator) {
+					modulator=voiceSample;
+				} else {
+					accumulatedSample+= voiceSample*modulator;
+					modulator=1.0;
+				}
 			};
-			data[i] = voiceSample;
+			data[i] = accumulatedSample;
 		}
 /*
 		data = out.getChannelData(1);			

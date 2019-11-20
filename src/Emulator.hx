@@ -160,9 +160,9 @@ class Emulator {
 		outPort[voicePort + 0x00] = function (value)  {selectedVoice.frequency = (selectedVoice.frequency&0xff00) | value; }
 		outPort[voicePort + 0x01] = function (value)  {selectedVoice.frequency = (selectedVoice.frequency&0x00ff) | (value << 8); }
 		outPort[voicePort + 0x02] = function (value)  {selectedVoice.volume=value; }
-		outPort[voicePort + 0x03] = function (value)  {selectedVoice.waveBase = value&0x0f; selectedVoice.waveShift=value>>4;}
-		outPort[voicePort + 0x04] = function (value)  {selectedVoice.bendDuration = value & 0x1f; selectedVoice.bendPhase=value>>5; }
-		outPort[voicePort + 0x05] = function (value)  {selectedVoice.bendAmplitude=value; }
+		outPort[voicePort + 0x03] = function (value)  {selectedVoice.waveBase = value&0x0f; selectedVoice.waveShift=(value>>4) & 7; selectedVoice.modulator = value&0x80 == 80; }
+		outPort[voicePort + 0x04] = function (value)  {selectedVoice.bendAmplitude = value & 0x1f; selectedVoice.bendPhase=value>>5; }
+		outPort[voicePort + 0x05] = function (value)  {selectedVoice.bendDuration=value; }
 		outPort[voicePort + 0x06] = function (value)  {selectedVoice.noise= value & 0x0f; selectedVoice.hold=value>>4; }
 		outPort[voicePort + 0x07] = function (value)  {selectedVoice.attack= value & 0x0f; selectedVoice.release=value>>4; }
 		

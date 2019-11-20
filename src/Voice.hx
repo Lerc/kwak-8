@@ -16,6 +16,7 @@ class Voice {
     public var hold(default,set) : Int;
     public var attack(default,set) : Int;
     public var release(default,set) : Int;     
+    public var modulator:Bool = false;
 
     var position : Float =0.0;
     var soundAge : Float =0.0;
@@ -48,7 +49,7 @@ class Voice {
         bendAmplitude=0;
 
         waveBase=8;
-        waveShift=8;
+        waveShift=0;
         bendAmplitude=0;
         noise=0;
         volume=0;
@@ -107,7 +108,7 @@ class Voice {
     }
 
     function makeWaveShiftFunction(value:Int) : Float->Float {        
-        return makeRadianFunction( makeSigmoidFunction( (value/15.0 - 0.5)*1.95));
+        return makeRadianFunction( makeSigmoidFunction( (value/8)*1.95));
     /*    
         if (value>7) {
             var v=((value-8)/8);
@@ -175,7 +176,7 @@ class Voice {
     public function nextSample() {
         soundAge+=sampleStep;
         var bendShift= 0.0;
-        if (bendHz!=0.0) bendShift=Math.cos(bendPhase * 0.25 * Math.PI + (soundAge/bendStep) ) * (bendAmplitude/255.0);
+        if (bendHz!=0.0) bendShift=Math.cos(bendPhase * 0.25 * Math.PI + (soundAge/bendStep) ) * (bendAmplitude/31.0);
         position+= step + (bendShift * (step/2));
         var wavePhase = position % TWOPI;
 
@@ -203,9 +204,9 @@ class Voice {
 
     function set_bendDuration(value) : Int {
         bendDuration = value;
-        var v = (bendDuration+1) / 33.0;
+        var v = (bendDuration+1) / 8.0;
         trace(v);
-        bendHz = Math.pow(v,2)*30;
+        bendHz = Math.pow(v,2)*0.5;
         bendStep= 1.0/ (bendHz * Math.PI * 2);
         return value;
     }
