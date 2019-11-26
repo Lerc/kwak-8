@@ -369,7 +369,7 @@ Voice registers are:
             low 5 Bits: bend Amplitude              
                 Frequency range of the bend.  
                 A value of 0 indicates no bend
-                A value of 31 will occilate frequency between 
+                A value of 31 will oscillate frequency between 
                     voice_freq - voice_freq/2
                 and 
                     voice_freq + voice_freq/2
@@ -377,12 +377,12 @@ Voice registers are:
  	        high 3 bits: Bend phase 000=0 100=Pi  111=2*PI/8*7,   
 
     0x55    Bend duration
-                 Occilation Frequency (((Uint8_Value+16)/(255+16))^4 ) * 128  Hz 
-                 A value of 0 results in a bend of 0.0016 Hz  ( 642 seconds for a full occilation wave)
-                 A value of 1 results in a bend of 0.0079 Hz   (127 seconds for a full occilation wave)
-                 A value of 16 results in a bend of 0.025 Hz   (40 seconds for a full occilation wave)
-                 A value of 32 results in a bend of 0.126 Hz   (8 seconds  for a full occilation wave)
-                 A value of 64 results in a bend of 0.97 Hz    (1 second for a full occilation wave)
+                 Oscillation Frequency (((Uint8_Value+16)/(255+16))^4 ) * 128  Hz 
+                 A value of 0 results in a bend of 0.0016 Hz  ( 642 seconds for a full oscillation wave)
+                 A value of 1 results in a bend of 0.0079 Hz   (127 seconds for a full oscillation wave)
+                 A value of 16 results in a bend of 0.025 Hz   (40 seconds for a full oscillation wave)
+                 A value of 32 results in a bend of 0.126 Hz   (8 seconds  for a full oscillation wave)
+                 A value of 64 results in a bend of 0.97 Hz    (1 second for a full oscillation wave)
                  A value of 96 results in a bend of 3.73 Hz     
                  A value of 128 results in a bend of 10 Hz     
                  A value of 192 results in a bend of 44 Hz     
