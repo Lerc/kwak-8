@@ -377,15 +377,16 @@ Voice registers are:
  	        high 3 bits: Bend phase 000=0 100=Pi  111=2*PI/8*7,   
 
     0x55    Bend duration
-                 Occilation Frequency ((Uint8_Value+1)/8)² /2  Hz 
-                 A value of 0 results in a bend of 0.0078 Hz  (128 seconds for a full occilation wave)
-                 A value of 3 results in a bend of 0.125 Hz   (8 seconds for a full occilation wave)
-                 A value of 7 results in a bend of 0.5 Hz     (2 seconds  for a full occilation wave)
-                 A value of 10 results in a bend of 0.94 Hz   (1.05 seconds for a full occilation wave)
-                 A value of 31 results in a bend of 8 Hz     
-                 A value of 63 results in a bend of 32 Hz     
-                 A value of 127 results in a bend of 128 Hz     
-                 A value of 255 results in a bend of 512 Hz     
+                 Occilation Frequency (((Uint8_Value+16)/(255+16))^4 ) * 128  Hz 
+                 A value of 0 results in a bend of 0.0016 Hz  ( 642 seconds for a full occilation wave)
+                 A value of 1 results in a bend of 0.0079 Hz   (127 seconds for a full occilation wave)
+                 A value of 16 results in a bend of 0.025 Hz   (40 seconds for a full occilation wave)
+                 A value of 32 results in a bend of 0.126 Hz   (8 seconds  for a full occilation wave)
+                 A value of 64 results in a bend of 0.97 Hz    (1 second for a full occilation wave)
+                 A value of 96 results in a bend of 3.73 Hz     
+                 A value of 128 results in a bend of 10 Hz     
+                 A value of 192 results in a bend of 44 Hz     
+                 A value of 255 results in a bend of 128 Hz     
 
     0x56    Noise Level and Envelope Hold Duration 
 
