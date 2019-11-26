@@ -13,8 +13,8 @@ class Main
 	static function main() 
 	{
 		Browser.document.addEventListener("DOMContentLoaded", function(e) {
-			var emulator : EmulatortHost;
-			emulator  = new EmulatortHost(); 
+			var emulator : EmulatorHost;
+			emulator  = new EmulatorHost(); 
 		});
 	}
 }
