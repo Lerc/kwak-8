@@ -56,8 +56,8 @@
 |   0x52  | Voice Volume                     |               |
 |   0x53  | Voice Shape (wave:4   shift:3    |               |
 |         |               modulate:1 )       |               |
-|   0x54  | Voice Bend (duration:5 phase:3)  |               |
-|   0x55  | Voice Bend Amplitude             |               |
+|   0x54  | Voice Bend (amplitude:5 phase:3) |               |
+|   0x55  | Voice Bend duration              |               |
 |   0x56  | Voice Noise:4  Hold:4            |               |
 |   0x57  | Voice Play (attack:4 release:4)  |               |
 |         |                                  |               |
