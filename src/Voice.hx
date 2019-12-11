@@ -108,13 +108,13 @@ class Voice {
     }
 
     function makeWaveShiftFunction(value:Int) : Float->Float {        
-        return makeRadianFunction( makeSigmoidFunction( (value*0.14)));
-    /*    
-        if (value>7) {
-            var v=((value-8)/8);
+        //return makeRadianFunction( makeSigmoidFunction( -(value*0.14)));
+        
+      //  if (value>7) {
+            var v=(value/8);
             var x=v*v*16+1;
             return function(a) {return  Math.pow(a/TWOPI,x) * TWOPI;};
-        } else {
+    /*    } else {
             var v=1-((value)/8);
             var x=v*v*16+1;
             return function(a) { return 1-Math.pow(1-(a/TWOPI),x) * TWOPI;};
