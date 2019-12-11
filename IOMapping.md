@@ -18,8 +18,8 @@
 |   0x2e  |                                  |               |
 |   0x2f  |                                  |               |
 |         |                                  |               |
-|   0x30  |                                  | Buttons_0     |
-|   0x31  |                                  | Buttons_1     |
+|   0x30  |                                  | Buttons_1     |
+|   0x31  |                                  | Buttons_2     |
 |   0x32  |                                  | Mouse X       |
 |   0x33  |                                  | Mouse Y       |
 |   0x34  |                                  | Frame Ticker  |
@@ -410,3 +410,14 @@ Voice registers are:
 
             Writing to the this Register triggers the start of the
             Attack,Hold,Release Cycle.
+
+# inputs
+
+    0x30    Buttons_1 Left Up Right Down Enter Esc Ctrl Space
+    0x31    Buttons_2 A W D S Shift (Mouse1/Z) (Mouse2/X (Mouse3/BackSpace)    
+    0x32    mouseX measured in LowRes pixels 
+    0x33    mousey measured in LowRes pixels 
+    0x34    increments on each frame of host device.
+    0x35    increments once per second 
+    0x36    buffers a few chars. reads as zero when buffer is empty. reading the port removes the item from the buffer.
+ 
