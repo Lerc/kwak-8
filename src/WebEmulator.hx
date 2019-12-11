@@ -32,7 +32,7 @@ class WebEmulator extends Emulator
 
 	var rawKeymap : Array<Bool> = [];
 	var mouseButtonState : Array<Bool> = [false, false, false];
-	var buttonMap : Array<Int> = [37, 38, 39, 40, 13, 27, 17, 16, 65, 87, 68, 83, 32, 90, 88, 8];
+	var buttonMap : Array<Int> = [37, 38, 39, 40, 13, 27, 17, 32, 65, 87, 68, 83, 16, 90, 88, 8];
 	var keyBuffer : List<Int> = new List<Int>();
 
 	var buttonsA : Int = 0;
