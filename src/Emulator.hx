@@ -5,7 +5,7 @@ import js.html.ImageData;
 
 import haxe.io.Bytes;
 import haxe.zip.Compress;
-
+@:keep
 class Emulator {
 
 	var avr : AVR8;
